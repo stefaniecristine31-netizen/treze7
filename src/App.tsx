@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
+import { PWAInstallBanner, OfflineIndicator } from "@/components/PWAInstallPrompt";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Vendas from "./pages/Vendas";
@@ -22,6 +23,8 @@ const App = () => (
       <Sonner />
       <AuthProvider>
         <BrowserRouter>
+          <OfflineIndicator />
+          <PWAInstallBanner />
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
