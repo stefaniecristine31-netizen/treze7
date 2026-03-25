@@ -5,7 +5,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
-import { OfflineIndicator } from "@/components/OfflineIndicator";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Vendas from "./pages/Vendas";
@@ -21,7 +20,6 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Sonner />
-      <OfflineIndicator />
       <AuthProvider>
         <BrowserRouter>
           <Routes>
