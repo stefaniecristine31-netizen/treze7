@@ -14,7 +14,210 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      assistencias: {
+        Row: {
+          aparelho: string | null
+          cliente: string
+          created_at: string
+          frete: number
+          garantia: string | null
+          id: string
+          lucro: number
+          mao_de_obra: number
+          observacao: string | null
+          servico: string | null
+          status: string
+          tecnico: string | null
+          telefone: string | null
+          updated_at: string
+          user_id: string
+          valor_peca: number
+          valor_servico: number
+        }
+        Insert: {
+          aparelho?: string | null
+          cliente: string
+          created_at?: string
+          frete?: number
+          garantia?: string | null
+          id?: string
+          lucro?: number
+          mao_de_obra?: number
+          observacao?: string | null
+          servico?: string | null
+          status?: string
+          tecnico?: string | null
+          telefone?: string | null
+          updated_at?: string
+          user_id: string
+          valor_peca?: number
+          valor_servico?: number
+        }
+        Update: {
+          aparelho?: string | null
+          cliente?: string
+          created_at?: string
+          frete?: number
+          garantia?: string | null
+          id?: string
+          lucro?: number
+          mao_de_obra?: number
+          observacao?: string | null
+          servico?: string | null
+          status?: string
+          tecnico?: string | null
+          telefone?: string | null
+          updated_at?: string
+          user_id?: string
+          valor_peca?: number
+          valor_servico?: number
+        }
+        Relationships: []
+      }
+      compras: {
+        Row: {
+          cliente: string | null
+          created_at: string
+          id: string
+          produto: string
+          telefone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cliente?: string | null
+          created_at?: string
+          id?: string
+          produto: string
+          telefone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cliente?: string | null
+          created_at?: string
+          id?: string
+          produto?: string
+          telefone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      despesas: {
+        Row: {
+          created_at: string
+          id: string
+          nome: string | null
+          tipo: string
+          updated_at: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome?: string | null
+          tipo: string
+          updated_at?: string
+          user_id: string
+          valor?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome?: string | null
+          tipo?: string
+          updated_at?: string
+          user_id?: string
+          valor?: number
+        }
+        Relationships: []
+      }
+      estoque: {
+        Row: {
+          created_at: string
+          id: string
+          produto: string
+          quantidade: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          produto: string
+          quantidade?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          produto?: string
+          quantidade?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          nome: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          nome?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          nome?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      vendas: {
+        Row: {
+          assistencia_id: string | null
+          created_at: string
+          id: string
+          produto: string
+          updated_at: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          assistencia_id?: string | null
+          created_at?: string
+          id?: string
+          produto: string
+          updated_at?: string
+          user_id: string
+          valor?: number
+        }
+        Update: {
+          assistencia_id?: string | null
+          created_at?: string
+          id?: string
+          produto?: string
+          updated_at?: string
+          user_id?: string
+          valor?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
