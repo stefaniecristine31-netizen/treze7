@@ -1,19 +1,36 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit2, X } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, CalendarIcon, Filter, ShoppingCart, DollarSign, TrendingUp } from 'lucide-react';
+import { StatCard } from '@/components/StatCard';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+
+const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 export default function Vendas() {
   const { user } = useAuth();
   const [items, setItems] = useState<any[]>([]);
   const [produto, setProduto] = useState('');
   const [valor, setValor] = useState('');
+  const [dataVenda, setDataVenda] = useState<Date | undefined>(undefined);
   const [editId, setEditId] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
+  const [ordem, setOrdem] = useState('recente');
+  const [filtroMes, setFiltroMes] = useState('todos');
+  const [dataInicio, setDataInicio] = useState<Date | undefined>(undefined);
+  const [dataFim, setDataFim] = useState<Date | undefined>(undefined);
+  const [valorMin, setValorMin] = useState('');
+  const [valorMax, setValorMax] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
 
   const load = async () => {
     const { data } = await supabase.from('vendas').select('*').order('created_at', { ascending: false });
@@ -24,7 +41,8 @@ export default function Vendas() {
 
   const save = async () => {
     if (!produto || !valor) { toast.error('Preencha todos os campos'); return; }
-    const obj = { produto, valor: parseFloat(valor), user_id: user!.id };
+    const obj: any = { produto, valor: parseFloat(valor), user_id: user!.id };
+    if (dataVenda) obj.created_at = dataVenda.toISOString();
     if (editId) {
       await supabase.from('vendas').update(obj).eq('id', editId);
       toast.success('Venda atualizada');
@@ -32,7 +50,7 @@ export default function Vendas() {
       await supabase.from('vendas').insert(obj);
       toast.success('Venda registrada');
     }
-    setProduto(''); setValor(''); setEditId(null); load();
+    setProduto(''); setValor(''); setDataVenda(undefined); setEditId(null); load();
   };
 
   const remove = async (id: string) => {
@@ -41,26 +59,88 @@ export default function Vendas() {
   };
 
   const edit = (item: any) => {
-    setProduto(item.produto); setValor(String(item.valor)); setEditId(item.id);
+    setProduto(item.produto);
+    setValor(String(item.valor));
+    setDataVenda(new Date(item.created_at));
+    setEditId(item.id);
   };
 
-  const filtered = items.filter(i => i.produto.toLowerCase().includes(busca.toLowerCase()));
+  const filtered = useMemo(() => {
+    let result = [...items];
+
+    // Busca por nome
+    if (busca) result = result.filter(i => i.produto.toLowerCase().includes(busca.toLowerCase()));
+
+    // Filtro por mês
+    if (filtroMes !== 'todos') {
+      const monthIdx = meses.indexOf(filtroMes);
+      if (monthIdx >= 0) result = result.filter(i => new Date(i.created_at).getMonth() === monthIdx);
+    }
+
+    // Filtro por período
+    if (dataInicio) result = result.filter(i => new Date(i.created_at) >= dataInicio);
+    if (dataFim) {
+      const fim = new Date(dataFim);
+      fim.setHours(23, 59, 59);
+      result = result.filter(i => new Date(i.created_at) <= fim);
+    }
+
+    // Filtro por valor
+    if (valorMin) result = result.filter(i => Number(i.valor) >= parseFloat(valorMin));
+    if (valorMax) result = result.filter(i => Number(i.valor) <= parseFloat(valorMax));
+
+    // Ordenação
+    switch (ordem) {
+      case 'antigo': result.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()); break;
+      case 'maior': result.sort((a, b) => Number(b.valor) - Number(a.valor)); break;
+      case 'menor': result.sort((a, b) => Number(a.valor) - Number(b.valor)); break;
+      default: result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+
+    return result;
+  }, [items, busca, filtroMes, dataInicio, dataFim, valorMin, valorMax, ordem]);
+
+  const totalVendas = filtered.reduce((s, v) => s + Number(v.valor), 0);
+  const ticketMedio = filtered.length > 0 ? totalVendas / filtered.length : 0;
   const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+  const clearFilters = () => {
+    setBusca(''); setFiltroMes('todos'); setDataInicio(undefined); setDataFim(undefined);
+    setValorMin(''); setValorMax('');
+  };
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Vendas</h1>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <StatCard title="Total Vendas" value={fmt(totalVendas)} icon={ShoppingCart} color="primary" />
+        <StatCard title="Quantidade" value={String(filtered.length)} icon={DollarSign} color="warning" />
+        <StatCard title="Ticket Médio" value={fmt(ticketMedio)} icon={TrendingUp} color="success" />
+      </div>
+
       <Card className="shadow-card">
         <CardHeader><CardTitle className="text-base">{editId ? 'Editar Venda' : 'Nova Venda'}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <Input placeholder="Produto" value={produto} onChange={e => setProduto(e.target.value)} />
           <Input placeholder="Valor" type="number" step="0.01" value={valor} onChange={e => setValor(e.target.value)} />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dataVenda && "text-muted-foreground")}>
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dataVenda ? format(dataVenda, "PPP", { locale: ptBR }) : "Data (opcional, padrão: agora)"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={dataVenda} onSelect={setDataVenda} initialFocus className="p-3 pointer-events-auto" />
+            </PopoverContent>
+          </Popover>
           <div className="flex gap-2">
             <Button onClick={save} className="flex-1">
               <Plus className="mr-2 h-4 w-4" />{editId ? 'Atualizar' : 'Salvar'}
             </Button>
             {editId && (
-              <Button variant="outline" onClick={() => { setEditId(null); setProduto(''); setValor(''); }}>
+              <Button variant="outline" onClick={() => { setEditId(null); setProduto(''); setValor(''); setDataVenda(undefined); }}>
                 <X className="h-4 w-4" />
               </Button>
             )}
@@ -68,7 +148,67 @@ export default function Vendas() {
         </CardContent>
       </Card>
 
-      <Input placeholder="Buscar venda..." value={busca} onChange={e => setBusca(e.target.value)} />
+      {/* Filters */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Input placeholder="Buscar produto..." value={busca} onChange={e => setBusca(e.target.value)} className="flex-1" />
+          <Select value={ordem} onValueChange={setOrdem}>
+            <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recente">Mais recentes</SelectItem>
+              <SelectItem value="antigo">Mais antigas</SelectItem>
+              <SelectItem value="maior">Maior valor</SelectItem>
+              <SelectItem value="menor">Menor valor</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
+            <Filter className="mr-2 h-4 w-4" />Filtros
+          </Button>
+        </div>
+
+        {showFilters && (
+          <Card className="shadow-card">
+            <CardContent className="p-4 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <Select value={filtroMes} onValueChange={setFiltroMes}>
+                  <SelectTrigger><SelectValue placeholder="Mês" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os meses</SelectItem>
+                    {meses.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dataInicio && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dataInicio ? format(dataInicio, "dd/MM/yyyy") : "Data início"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={dataInicio} onSelect={setDataInicio} initialFocus className="p-3 pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dataFim && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dataFim ? format(dataFim, "dd/MM/yyyy") : "Data fim"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={dataFim} onSelect={setDataFim} initialFocus className="p-3 pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
+                <div className="flex gap-2">
+                  <Input placeholder="Valor mín" type="number" value={valorMin} onChange={e => setValorMin(e.target.value)} />
+                  <Input placeholder="Valor máx" type="number" value={valorMax} onChange={e => setValorMax(e.target.value)} />
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={clearFilters}>Limpar filtros</Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       <div className="space-y-2">
         {filtered.map(item => (
@@ -77,7 +217,7 @@ export default function Vendas() {
               <div>
                 <p className="font-medium">{item.produto}</p>
                 <p className="text-sm text-muted-foreground">
-                  {fmt(item.valor)} • {new Date(item.created_at).toLocaleDateString('pt-BR')}
+                  {fmt(item.valor)} • {new Date(item.created_at).toLocaleString('pt-BR')}
                 </p>
               </div>
               <div className="flex gap-2">
