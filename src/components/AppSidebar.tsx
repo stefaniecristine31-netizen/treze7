@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, ShoppingCart, Receipt, Wrench, Package, ShoppingBag, LogOut
+  LayoutDashboard, ShoppingCart, Receipt, Wrench, Package, ShoppingBag, LogOut, Settings, Wallet, FileBarChart
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -14,8 +14,11 @@ const items = [
   { title: 'Vendas', url: '/vendas', icon: ShoppingCart },
   { title: 'Despesas', url: '/despesas', icon: Receipt },
   { title: 'Assistência', url: '/assistencia', icon: Wrench },
+  { title: 'Caixa', url: '/caixa', icon: Wallet },
   { title: 'Estoque', url: '/estoque', icon: Package },
   { title: 'Compras', url: '/compras', icon: ShoppingBag },
+  { title: 'Relatórios', url: '/relatorios', icon: FileBarChart },
+  { title: 'Configurações', url: '/configuracoes', icon: Settings },
 ];
 
 export function AppSidebar() {

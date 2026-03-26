@@ -6,10 +6,16 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { StatCard } from '@/components/StatCard';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit2, X, Wrench, DollarSign, CalendarDays } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Wrench, DollarSign, CalendarDays, FileText, MessageCircle, CalendarIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+import { gerarOsPdf } from '@/lib/pdfUtils';
 
 const tecnicos = ['Marco', 'Terceiro'];
 const garantias = ['3 meses', '6 meses', '1 semana', 'Outro'];
@@ -18,11 +24,13 @@ const statusOptions = ['Em andamento', 'Concluído', 'Entregue'];
 export default function Assistencia() {
   const { user } = useAuth();
   const [items, setItems] = useState<any[]>([]);
+  const [config, setConfig] = useState<any>(null);
   const [form, setForm] = useState({
     cliente: '', telefone: '', aparelho: '', servico: '',
     valor_servico: '', valor_peca: '', frete: '', mao_de_obra: '',
     tecnico: '', garantia: '', status: 'Em andamento', observacao: '',
   });
+  const [dataAssist, setDataAssist] = useState<Date | undefined>(undefined);
   const [editId, setEditId] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
   const [filtroTecnico, setFiltroTecnico] = useState('todos');
@@ -33,11 +41,14 @@ export default function Assistencia() {
     setItems(data || []);
   };
 
-  useEffect(() => { if (user) load(); }, [user]);
+  useEffect(() => {
+    if (!user) return;
+    load();
+    supabase.from('configuracoes').select('*').eq('user_id', user.id).maybeSingle().then(({ data }) => setConfig(data));
+  }, [user]);
 
   const set = (field: string, value: string) => setForm(f => ({ ...f, [field]: value }));
 
-  // REGRA CORRETA: lucro = valorServico - valorPeca - frete - maoDeObra
   const calcLucro = () => {
     const vs = parseFloat(form.valor_servico) || 0;
     const vp = parseFloat(form.valor_peca) || 0;
@@ -49,7 +60,7 @@ export default function Assistencia() {
   const save = async () => {
     if (!form.cliente || !form.valor_servico) { toast.error('Preencha cliente e valor do serviço'); return; }
     const lucro = calcLucro();
-    const obj = {
+    const obj: any = {
       cliente: form.cliente, telefone: form.telefone, aparelho: form.aparelho,
       servico: form.servico, valor_servico: parseFloat(form.valor_servico) || 0,
       valor_peca: parseFloat(form.valor_peca) || 0, frete: parseFloat(form.frete) || 0,
@@ -57,16 +68,15 @@ export default function Assistencia() {
       tecnico: form.tecnico, garantia: form.garantia, status: form.status,
       observacao: form.observacao, user_id: user!.id,
     };
+    if (dataAssist) obj.created_at = dataAssist.toISOString();
 
     if (editId) {
       await supabase.from('assistencias').update(obj).eq('id', editId);
-      // Update linked venda
       await supabase.from('vendas').update({ produto: `Assistência - ${form.cliente}`, valor: lucro }).eq('assistencia_id', editId);
       toast.success('Assistência atualizada');
     } else {
       const { data } = await supabase.from('assistencias').insert(obj).select().single();
       if (data) {
-        // Create linked venda with lucro
         await supabase.from('vendas').insert({
           produto: `Assistência - ${form.cliente}`, valor: lucro,
           assistencia_id: data.id, user_id: user!.id,
@@ -78,7 +88,6 @@ export default function Assistencia() {
   };
 
   const remove = async (id: string) => {
-    // Remove linked venda first
     await supabase.from('vendas').delete().eq('assistencia_id', id);
     await supabase.from('assistencias').delete().eq('id', id);
     toast.success('Assistência e venda vinculada excluídas'); load();
@@ -92,12 +101,26 @@ export default function Assistencia() {
       mao_de_obra: String(item.mao_de_obra), tecnico: item.tecnico || '',
       garantia: item.garantia || '', status: item.status, observacao: item.observacao || '',
     });
+    setDataAssist(new Date(item.created_at));
     setEditId(item.id);
   };
 
   const resetForm = () => {
     setForm({ cliente: '', telefone: '', aparelho: '', servico: '', valor_servico: '', valor_peca: '', frete: '', mao_de_obra: '', tecnico: '', garantia: '', status: 'Em andamento', observacao: '' });
+    setDataAssist(undefined);
     setEditId(null);
+  };
+
+  const sendWhatsApp = (item: any) => {
+    if (!item.telefone) { toast.error('Cliente sem telefone cadastrado'); return; }
+    const phone = item.telefone.replace(/\D/g, '');
+    const msg = encodeURIComponent(`Olá ${item.cliente}, seu aparelho (${item.aparelho || 'equipamento'}) está pronto para retirada. Obrigado pela preferência! - ${config?.nome_loja || 'Treze7'}`);
+    window.open(`https://wa.me/55${phone}?text=${msg}`, '_blank');
+  };
+
+  const downloadOs = (item: any) => {
+    gerarOsPdf(item, config);
+    toast.success('PDF da OS gerado');
   };
 
   const filtered = useMemo(() => {
@@ -112,7 +135,6 @@ export default function Assistencia() {
   const lucroTotal = items.reduce((s, a) => s + Number(a.lucro), 0);
   const hoje = new Date().toISOString().slice(0, 10);
   const assistHoje = items.filter(i => i.created_at?.slice(0, 10) === hoje).length;
-
   const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
   const lucroPreview = calcLucro();
 
@@ -156,6 +178,17 @@ export default function Assistencia() {
               <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
               <SelectContent>{statusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
             </Select>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dataAssist && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dataAssist ? format(dataAssist, "PPP", { locale: ptBR }) : "Data (opcional)"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={dataAssist} onSelect={setDataAssist} initialFocus className="p-3 pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
           </div>
           <Textarea placeholder="Observação" value={form.observacao} onChange={e => set('observacao', e.target.value)} />
 
@@ -195,23 +228,24 @@ export default function Assistencia() {
           <Card key={item.id} className="shadow-card">
             <CardContent className="p-4">
               <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+                <div className="space-y-1 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold">{item.cliente}</p>
                     <Badge variant={statusColor(item.status)}>{item.status}</Badge>
+                    <Badge variant="outline" className="text-xs">OS #{String(item.numero_os || '').padStart(4, '0')}</Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground">{item.telefone} • {item.servico}</p>
+                  <p className="text-sm text-muted-foreground">{item.telefone} • {item.aparelho} • {item.servico}</p>
                   <p className="text-sm text-muted-foreground">Serviço: {fmt(item.valor_servico)}</p>
                   <p className={`text-sm font-semibold ${Number(item.lucro) >= 0 ? 'text-success' : 'text-destructive'}`}>
                     Lucro: {fmt(item.lucro)}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(item.created_at).toLocaleString('pt-BR')}
-                  </p>
+                  <p className="text-xs text-muted-foreground">{new Date(item.created_at).toLocaleString('pt-BR')}</p>
                 </div>
-                <div className="flex gap-2">
-                  <Button size="icon" variant="ghost" onClick={() => edit(item)}><Edit2 className="h-4 w-4" /></Button>
-                  <Button size="icon" variant="ghost" className="text-destructive" onClick={() => remove(item.id)}><Trash2 className="h-4 w-4" /></Button>
+                <div className="flex flex-col gap-1">
+                  <Button size="icon" variant="ghost" onClick={() => edit(item)} title="Editar"><Edit2 className="h-4 w-4" /></Button>
+                  <Button size="icon" variant="ghost" onClick={() => downloadOs(item)} title="Gerar OS PDF"><FileText className="h-4 w-4 text-primary" /></Button>
+                  <Button size="icon" variant="ghost" onClick={() => sendWhatsApp(item)} title="WhatsApp"><MessageCircle className="h-4 w-4 text-green-500" /></Button>
+                  <Button size="icon" variant="ghost" className="text-destructive" onClick={() => remove(item.id)} title="Excluir"><Trash2 className="h-4 w-4" /></Button>
                 </div>
               </div>
             </CardContent>
