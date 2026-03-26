@@ -30,19 +30,12 @@ async function addLogo(doc: jsPDF, logoUrl: string | null, x: number, y: number,
   }
 }
 
-export async function gerarOsPdf(assistencia: any, config: any) {
-  const doc = new jsPDF();
+function addHeader(doc: jsPDF, config: any, y: number): number {
   const pw = doc.internal.pageSize.getWidth();
-  let y = 15;
-
-  // Header with logo
-  y = await addLogo(doc, config?.logo_url, 14, y, 20);
-  
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.text(config?.nome_loja || 'Treze7', pw / 2, y, { align: 'center' });
   y += 6;
-  
   if (config?.telefone_loja) {
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
@@ -54,14 +47,38 @@ export async function gerarOsPdf(assistencia: any, config: any) {
     doc.text(config.endereco_loja, pw / 2, y, { align: 'center' });
     y += 4;
   }
-
   y += 4;
   doc.setDrawColor(59, 130, 246);
   doc.setLineWidth(0.8);
   doc.line(14, y, pw - 14, y);
   y += 8;
+  return y;
+}
 
-  // OS Number
+function savePdf(doc: jsPDF, filename: string) {
+  // Use blob URL for better mobile compatibility
+  const blob = doc.output('blob');
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  setTimeout(() => {
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, 100);
+}
+
+export async function gerarOsPdf(assistencia: any, config: any) {
+  const doc = new jsPDF();
+  const pw = doc.internal.pageSize.getWidth();
+  let y = 15;
+
+  y = await addLogo(doc, config?.logo_url, 14, y, 20);
+  y = addHeader(doc, config, y);
+
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   doc.text(`ORDEM DE SERVIÇO #${String(assistencia.numero_os || '').padStart(4, '0')}`, pw / 2, y, { align: 'center' });
@@ -71,7 +88,6 @@ export async function gerarOsPdf(assistencia: any, config: any) {
   doc.text(`Data: ${new Date(assistencia.created_at).toLocaleDateString('pt-BR')}`, pw / 2, y, { align: 'center' });
   y += 10;
 
-  // Client data
   doc.autoTable({
     startY: y,
     head: [['DADOS DO CLIENTE']],
@@ -87,7 +103,6 @@ export async function gerarOsPdf(assistencia: any, config: any) {
   });
   y = doc.lastAutoTable.finalY + 6;
 
-  // Service data
   doc.autoTable({
     startY: y,
     head: [['DETALHES DO SERVIÇO']],
@@ -118,7 +133,6 @@ export async function gerarOsPdf(assistencia: any, config: any) {
     y = doc.lastAutoTable.finalY + 6;
   }
 
-  // Terms
   y += 4;
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
@@ -133,7 +147,6 @@ export async function gerarOsPdf(assistencia: any, config: any) {
   ];
   termos.forEach(t => { doc.text(t, 14, y); y += 4; });
 
-  // Signatures
   y += 15;
   doc.setLineWidth(0.3);
   doc.setDrawColor(0);
@@ -144,7 +157,66 @@ export async function gerarOsPdf(assistencia: any, config: any) {
   doc.text('Assinatura do Cliente', 52, y, { align: 'center' });
   doc.text('Assinatura da Loja', pw - 52, y, { align: 'center' });
 
-  doc.save(`OS_${String(assistencia.numero_os || '').padStart(4, '0')}_${assistencia.cliente}.pdf`);
+  savePdf(doc, `OS_${String(assistencia.numero_os || '').padStart(4, '0')}_${assistencia.cliente}.pdf`);
+}
+
+export async function gerarVendaPdf(venda: any, config: any) {
+  const doc = new jsPDF();
+  const pw = doc.internal.pageSize.getWidth();
+  let y = 15;
+
+  y = await addLogo(doc, config?.logo_url, 14, y, 20);
+  y = addHeader(doc, config, y);
+
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('COMPROVANTE DE VENDA', pw / 2, y, { align: 'center' });
+  y += 10;
+
+  doc.autoTable({
+    startY: y,
+    head: [['DADOS DA VENDA']],
+    body: [
+      [`Produto: ${venda.produto}`],
+      [`Valor: ${fmt(Number(venda.valor))}`],
+      [`Data: ${new Date(venda.created_at).toLocaleDateString('pt-BR')}`],
+      [`Garantia: ${(venda.garantia_dias || 0) > 0 ? `${venda.garantia_dias} dias` : 'Sem garantia'}`],
+    ],
+    theme: 'grid',
+    headStyles: { fillColor: [59, 130, 246], fontSize: 10 },
+    styles: { fontSize: 9 },
+    margin: { left: 14, right: 14 },
+  });
+  y = doc.lastAutoTable.finalY + 6;
+
+  if ((venda.garantia_dias || 0) > 0) {
+    doc.autoTable({
+      startY: y,
+      head: [['TERMOS DE GARANTIA']],
+      body: [[
+        'Esta garantia cobre apenas defeitos de fabricação, não incluindo mau uso, ' +
+        'danos por quedas, líquidos ou uso inadequado do produto. ' +
+        `Válida por ${venda.garantia_dias} dias a partir da data da compra.`
+      ]],
+      theme: 'grid',
+      headStyles: { fillColor: [59, 130, 246], fontSize: 10 },
+      styles: { fontSize: 9 },
+      margin: { left: 14, right: 14 },
+    });
+    y = doc.lastAutoTable.finalY + 6;
+  }
+
+  y += 15;
+  doc.setLineWidth(0.3);
+  doc.setDrawColor(0);
+  doc.line(14, y, 90, y);
+  doc.line(pw - 90, y, pw - 14, y);
+  y += 5;
+  doc.setFontSize(9);
+  doc.text('Assinatura do Cliente', 52, y, { align: 'center' });
+  doc.text('Assinatura da Loja', pw - 52, y, { align: 'center' });
+
+  savePdf(doc, `Venda_${venda.produto}_${new Date(venda.created_at).toLocaleDateString('pt-BR').replace(/\//g, '-')}.pdf`);
 }
 
 export async function gerarRelatorioPdf(
@@ -173,7 +245,6 @@ export async function gerarRelatorioPdf(
   doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, pw / 2, y, { align: 'center' });
   y += 8;
 
-  // Summary cards
   const entries = Object.entries(resumo);
   if (entries.length > 0) {
     doc.autoTable({
@@ -188,7 +259,6 @@ export async function gerarRelatorioPdf(
     y = doc.lastAutoTable.finalY + 6;
   }
 
-  // Data table
   doc.autoTable({
     startY: y,
     head: [colunas],
@@ -199,5 +269,5 @@ export async function gerarRelatorioPdf(
     margin: { left: 14, right: 14 },
   });
 
-  doc.save(`${titulo.replace(/\s/g, '_')}.pdf`);
+  savePdf(doc, `${titulo.replace(/\s/g, '_')}.pdf`);
 }

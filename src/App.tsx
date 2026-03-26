@@ -30,15 +30,15 @@ const App = () => (
           <PWAInstallBanner />
           <Routes>
             <Route path="/auth" element={<Auth />} />
-            <Route path="/" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
+            <Route path="/" element={<ProtectedRoute adminOnly><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
             <Route path="/vendas" element={<ProtectedRoute><AppLayout><Vendas /></AppLayout></ProtectedRoute>} />
-            <Route path="/despesas" element={<ProtectedRoute><AppLayout><Despesas /></AppLayout></ProtectedRoute>} />
+            <Route path="/despesas" element={<ProtectedRoute adminOnly><AppLayout><Despesas /></AppLayout></ProtectedRoute>} />
             <Route path="/assistencia" element={<ProtectedRoute><AppLayout><Assistencia /></AppLayout></ProtectedRoute>} />
-            <Route path="/caixa" element={<ProtectedRoute><AppLayout><Caixa /></AppLayout></ProtectedRoute>} />
+            <Route path="/caixa" element={<ProtectedRoute adminOnly><AppLayout><Caixa /></AppLayout></ProtectedRoute>} />
             <Route path="/estoque" element={<ProtectedRoute><AppLayout><Estoque /></AppLayout></ProtectedRoute>} />
             <Route path="/compras" element={<ProtectedRoute><AppLayout><Compras /></AppLayout></ProtectedRoute>} />
-            <Route path="/relatorios" element={<ProtectedRoute><AppLayout><Relatorios /></AppLayout></ProtectedRoute>} />
-            <Route path="/configuracoes" element={<ProtectedRoute><AppLayout><Configuracoes /></AppLayout></ProtectedRoute>} />
+            <Route path="/relatorios" element={<ProtectedRoute adminOnly><AppLayout><Relatorios /></AppLayout></ProtectedRoute>} />
+            <Route path="/configuracoes" element={<ProtectedRoute adminOnly><AppLayout><Configuracoes /></AppLayout></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

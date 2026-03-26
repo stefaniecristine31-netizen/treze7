@@ -1,20 +1,27 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useRole } from '@/hooks/useRole';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Upload, Trash2, Save, Store } from 'lucide-react';
+import { Upload, Trash2, Save, Store, UserPlus, Users } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 export default function Configuracoes() {
   const { user } = useAuth();
+  const { isAdmin } = useRole();
   const [nomeLoja, setNomeLoja] = useState('Treze7');
   const [telefoneLoja, setTelefoneLoja] = useState('');
   const [enderecoLoja, setEnderecoLoja] = useState('');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [configId, setConfigId] = useState<string | null>(null);
+
+  // User management
+  const [usuarios, setUsuarios] = useState<any[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -37,11 +44,9 @@ export default function Configuracoes() {
     setUploading(true);
     const ext = file.name.split('.').pop();
     const path = `${user.id}/logo.${ext}`;
-    
     await supabase.storage.from('logos').remove([path]);
     const { error } = await supabase.storage.from('logos').upload(path, file, { upsert: true });
     if (error) { toast.error('Erro ao enviar logo'); setUploading(false); return; }
-    
     const { data: urlData } = supabase.storage.from('logos').getPublicUrl(path);
     setLogoUrl(urlData.publicUrl + '?t=' + Date.now());
     setUploading(false);
@@ -61,11 +66,8 @@ export default function Configuracoes() {
   const save = async () => {
     if (!user) return;
     const obj = {
-      user_id: user.id,
-      nome_loja: nomeLoja,
-      telefone_loja: telefoneLoja,
-      endereco_loja: enderecoLoja,
-      logo_url: logoUrl,
+      user_id: user.id, nome_loja: nomeLoja, telefone_loja: telefoneLoja,
+      endereco_loja: enderecoLoja, logo_url: logoUrl,
     };
     if (configId) {
       await supabase.from('configuracoes').update(obj).eq('id', configId);
@@ -98,24 +100,42 @@ export default function Configuracoes() {
             )}
             <label className="cursor-pointer">
               <Button variant="outline" asChild disabled={uploading}>
-                <span>
-                  <Upload className="mr-2 h-4 w-4" />
-                  {uploading ? 'Enviando...' : 'Enviar Logo'}
-                </span>
+                <span><Upload className="mr-2 h-4 w-4" />{uploading ? 'Enviando...' : 'Enviar Logo'}</span>
               </Button>
               <input type="file" accept="image/png,image/jpeg" className="hidden" onChange={uploadLogo} />
             </label>
           </div>
-
           <div className="space-y-3">
             <Input placeholder="Nome da Loja" value={nomeLoja} onChange={e => setNomeLoja(e.target.value)} />
             <Input placeholder="Telefone da Loja" value={telefoneLoja} onChange={e => setTelefoneLoja(e.target.value)} />
             <Input placeholder="Endereço da Loja" value={enderecoLoja} onChange={e => setEnderecoLoja(e.target.value)} />
           </div>
+          <Button onClick={save} className="w-full"><Save className="mr-2 h-4 w-4" /> Salvar Configurações</Button>
+        </CardContent>
+      </Card>
 
-          <Button onClick={save} className="w-full">
-            <Save className="mr-2 h-4 w-4" /> Salvar Configurações
-          </Button>
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2"><Users className="h-5 w-5" /> Gestão de Usuários</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-3">
+            Para adicionar um vendedor, peça para ele criar uma conta normalmente. Novos usuários recebem o papel de <strong>admin</strong> por padrão.
+            Para alterar o papel de um usuário, entre em contato com o suporte.
+          </p>
+          <div className="p-3 rounded-lg bg-muted/50 text-sm">
+            <p className="font-medium">Papéis disponíveis:</p>
+            <div className="mt-2 space-y-1">
+              <div className="flex items-center gap-2">
+                <Badge>👑 Admin</Badge>
+                <span className="text-muted-foreground">Acesso total ao sistema</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">👨‍💼 Vendedor</Badge>
+                <span className="text-muted-foreground">Vendas, Assistência, Compras, Estoque</span>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
