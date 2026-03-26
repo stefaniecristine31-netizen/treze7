@@ -2,38 +2,48 @@ import {
   LayoutDashboard, ShoppingCart, Receipt, Wrench, Package, ShoppingBag, LogOut, Settings, Wallet, FileBarChart
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
-import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useRole } from '@/hooks/useRole';
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter, useSidebar,
 } from '@/components/ui/sidebar';
+import { Badge } from '@/components/ui/badge';
 
-const items = [
-  { title: 'Dashboard', url: '/', icon: LayoutDashboard },
-  { title: 'Vendas', url: '/vendas', icon: ShoppingCart },
-  { title: 'Despesas', url: '/despesas', icon: Receipt },
-  { title: 'Assistência', url: '/assistencia', icon: Wrench },
-  { title: 'Caixa', url: '/caixa', icon: Wallet },
-  { title: 'Estoque', url: '/estoque', icon: Package },
-  { title: 'Compras', url: '/compras', icon: ShoppingBag },
-  { title: 'Relatórios', url: '/relatorios', icon: FileBarChart },
-  { title: 'Configurações', url: '/configuracoes', icon: Settings },
+const allItems = [
+  { title: 'Dashboard', url: '/', icon: LayoutDashboard, adminOnly: true },
+  { title: 'Vendas', url: '/vendas', icon: ShoppingCart, adminOnly: false },
+  { title: 'Despesas', url: '/despesas', icon: Receipt, adminOnly: true },
+  { title: 'Assistência', url: '/assistencia', icon: Wrench, adminOnly: false },
+  { title: 'Caixa', url: '/caixa', icon: Wallet, adminOnly: true },
+  { title: 'Estoque', url: '/estoque', icon: Package, adminOnly: false },
+  { title: 'Compras', url: '/compras', icon: ShoppingBag, adminOnly: false },
+  { title: 'Relatórios', url: '/relatorios', icon: FileBarChart, adminOnly: true },
+  { title: 'Configurações', url: '/configuracoes', icon: Settings, adminOnly: true },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
-  const location = useLocation();
   const { signOut, user } = useAuth();
+  const { isAdmin, role } = useRole();
+
+  const items = allItems.filter(item => isAdmin || !item.adminOnly);
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
       <div className="p-4 flex items-center gap-2">
         {!collapsed && (
-          <h2 className="text-lg font-bold text-sidebar-foreground">
-            Treze7 <span className="text-sidebar-primary">Pro</span>
-          </h2>
+          <div>
+            <h2 className="text-lg font-bold text-sidebar-foreground">
+              Treze7 <span className="text-sidebar-primary">Pro</span>
+            </h2>
+            {role && (
+              <Badge variant="outline" className="text-[10px] mt-1 border-sidebar-border text-sidebar-foreground/60">
+                {isAdmin ? '👑 Admin' : '👨‍💼 Vendedor'}
+              </Badge>
+            )}
+          </div>
         )}
       </div>
       <SidebarContent>

@@ -7,21 +7,28 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit2, X, CalendarIcon, Filter, ShoppingCart, DollarSign, TrendingUp } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, CalendarIcon, Filter, ShoppingCart, DollarSign, TrendingUp, FileText } from 'lucide-react';
 import { StatCard } from '@/components/StatCard';
+import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { gerarVendaPdf } from '@/lib/pdfUtils';
 
 const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 export default function Vendas() {
   const { user } = useAuth();
   const [items, setItems] = useState<any[]>([]);
+  const [config, setConfig] = useState<any>(null);
   const [produto, setProduto] = useState('');
   const [valor, setValor] = useState('');
   const [dataVenda, setDataVenda] = useState<Date | undefined>(undefined);
+  const [temGarantia, setTemGarantia] = useState(false);
+  const [garantiaDias, setGarantiaDias] = useState('');
   const [editId, setEditId] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
   const [ordem, setOrdem] = useState('recente');
@@ -37,11 +44,18 @@ export default function Vendas() {
     setItems(data || []);
   };
 
-  useEffect(() => { if (user) load(); }, [user]);
+  useEffect(() => {
+    if (!user) return;
+    load();
+    supabase.from('configuracoes').select('*').eq('user_id', user.id).maybeSingle().then(({ data }) => setConfig(data));
+  }, [user]);
 
   const save = async () => {
     if (!produto || !valor) { toast.error('Preencha todos os campos'); return; }
-    const obj: any = { produto, valor: parseFloat(valor), user_id: user!.id };
+    const obj: any = {
+      produto, valor: parseFloat(valor), user_id: user!.id,
+      garantia_dias: temGarantia ? (parseInt(garantiaDias) || 0) : 0,
+    };
     if (dataVenda) obj.created_at = dataVenda.toISOString();
     if (editId) {
       await supabase.from('vendas').update(obj).eq('id', editId);
@@ -50,7 +64,11 @@ export default function Vendas() {
       await supabase.from('vendas').insert(obj);
       toast.success('Venda registrada');
     }
-    setProduto(''); setValor(''); setDataVenda(undefined); setEditId(null); load();
+    resetForm(); load();
+  };
+
+  const resetForm = () => {
+    setProduto(''); setValor(''); setDataVenda(undefined); setTemGarantia(false); setGarantiaDias(''); setEditId(null);
   };
 
   const remove = async (id: string) => {
@@ -62,41 +80,36 @@ export default function Vendas() {
     setProduto(item.produto);
     setValor(String(item.valor));
     setDataVenda(new Date(item.created_at));
+    setTemGarantia((item.garantia_dias || 0) > 0);
+    setGarantiaDias(String(item.garantia_dias || ''));
     setEditId(item.id);
+  };
+
+  const downloadPdf = (item: any) => {
+    gerarVendaPdf(item, config);
+    toast.success('PDF da venda gerado');
   };
 
   const filtered = useMemo(() => {
     let result = [...items];
-
-    // Busca por nome
     if (busca) result = result.filter(i => i.produto.toLowerCase().includes(busca.toLowerCase()));
-
-    // Filtro por mês
     if (filtroMes !== 'todos') {
       const monthIdx = meses.indexOf(filtroMes);
       if (monthIdx >= 0) result = result.filter(i => new Date(i.created_at).getMonth() === monthIdx);
     }
-
-    // Filtro por período
     if (dataInicio) result = result.filter(i => new Date(i.created_at) >= dataInicio);
     if (dataFim) {
-      const fim = new Date(dataFim);
-      fim.setHours(23, 59, 59);
+      const fim = new Date(dataFim); fim.setHours(23, 59, 59);
       result = result.filter(i => new Date(i.created_at) <= fim);
     }
-
-    // Filtro por valor
     if (valorMin) result = result.filter(i => Number(i.valor) >= parseFloat(valorMin));
     if (valorMax) result = result.filter(i => Number(i.valor) <= parseFloat(valorMax));
-
-    // Ordenação
     switch (ordem) {
       case 'antigo': result.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()); break;
       case 'maior': result.sort((a, b) => Number(b.valor) - Number(a.valor)); break;
       case 'menor': result.sort((a, b) => Number(a.valor) - Number(b.valor)); break;
       default: result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
-
     return result;
   }, [items, busca, filtroMes, dataInicio, dataFim, valorMin, valorMax, ordem]);
 
@@ -135,14 +148,21 @@ export default function Vendas() {
               <Calendar mode="single" selected={dataVenda} onSelect={setDataVenda} initialFocus className="p-3 pointer-events-auto" />
             </PopoverContent>
           </Popover>
+
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+            <Switch id="garantia" checked={temGarantia} onCheckedChange={setTemGarantia} />
+            <Label htmlFor="garantia" className="text-sm">Ativar garantia</Label>
+            {temGarantia && (
+              <Input placeholder="Dias de garantia" type="number" value={garantiaDias} onChange={e => setGarantiaDias(e.target.value)} className="w-32 ml-auto" />
+            )}
+          </div>
+
           <div className="flex gap-2">
             <Button onClick={save} className="flex-1">
               <Plus className="mr-2 h-4 w-4" />{editId ? 'Atualizar' : 'Salvar'}
             </Button>
             {editId && (
-              <Button variant="outline" onClick={() => { setEditId(null); setProduto(''); setValor(''); setDataVenda(undefined); }}>
-                <X className="h-4 w-4" />
-              </Button>
+              <Button variant="outline" onClick={resetForm}><X className="h-4 w-4" /></Button>
             )}
           </div>
         </CardContent>
@@ -215,12 +235,20 @@ export default function Vendas() {
           <Card key={item.id} className="shadow-card">
             <CardContent className="p-4 flex items-center justify-between">
               <div>
-                <p className="font-medium">{item.produto}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium">{item.produto}</p>
+                  {(item.garantia_dias || 0) > 0 && (
+                    <Badge variant="outline" className="text-xs">Garantia {item.garantia_dias}d</Badge>
+                  )}
+                </div>
                 <p className="text-sm text-muted-foreground">
                   {fmt(item.valor)} • {new Date(item.created_at).toLocaleString('pt-BR')}
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-1">
+                <Button size="icon" variant="ghost" onClick={() => downloadPdf(item)} title="Gerar PDF">
+                  <FileText className="h-4 w-4 text-primary" />
+                </Button>
                 <Button size="icon" variant="ghost" onClick={() => edit(item)}>
                   <Edit2 className="h-4 w-4" />
                 </Button>

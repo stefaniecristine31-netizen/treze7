@@ -203,27 +203,36 @@ export type Database = {
       estoque: {
         Row: {
           created_at: string
+          estoque_minimo: number
           id: string
           produto: string
           quantidade: number
           updated_at: string
           user_id: string
+          valor_custo: number
+          valor_venda: number
         }
         Insert: {
           created_at?: string
+          estoque_minimo?: number
           id?: string
           produto: string
           quantidade?: number
           updated_at?: string
           user_id: string
+          valor_custo?: number
+          valor_venda?: number
         }
         Update: {
           created_at?: string
+          estoque_minimo?: number
           id?: string
           produto?: string
           quantidade?: number
           updated_at?: string
           user_id?: string
+          valor_custo?: number
+          valor_venda?: number
         }
         Relationships: []
       }
@@ -254,10 +263,32 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       vendas: {
         Row: {
           assistencia_id: string | null
           created_at: string
+          garantia_dias: number
           id: string
           produto: string
           updated_at: string
@@ -267,6 +298,7 @@ export type Database = {
         Insert: {
           assistencia_id?: string | null
           created_at?: string
+          garantia_dias?: number
           id?: string
           produto: string
           updated_at?: string
@@ -276,6 +308,7 @@ export type Database = {
         Update: {
           assistencia_id?: string | null
           created_at?: string
+          garantia_dias?: number
           id?: string
           produto?: string
           updated_at?: string
@@ -289,10 +322,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "vendedor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -419,6 +458,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "vendedor"],
+    },
   },
 } as const
