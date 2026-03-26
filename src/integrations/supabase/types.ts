@@ -24,6 +24,7 @@ export type Database = {
           id: string
           lucro: number
           mao_de_obra: number
+          numero_os: number
           observacao: string | null
           servico: string | null
           status: string
@@ -43,6 +44,7 @@ export type Database = {
           id?: string
           lucro?: number
           mao_de_obra?: number
+          numero_os?: number
           observacao?: string | null
           servico?: string | null
           status?: string
@@ -62,6 +64,7 @@ export type Database = {
           id?: string
           lucro?: number
           mao_de_obra?: number
+          numero_os?: number
           observacao?: string | null
           servico?: string | null
           status?: string
@@ -71,6 +74,36 @@ export type Database = {
           user_id?: string
           valor_peca?: number
           valor_servico?: number
+        }
+        Relationships: []
+      }
+      caixa: {
+        Row: {
+          created_at: string
+          data: string
+          descricao: string | null
+          id: string
+          tipo: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          data?: string
+          descricao?: string | null
+          id?: string
+          tipo: string
+          user_id: string
+          valor?: number
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          descricao?: string | null
+          id?: string
+          tipo?: string
+          user_id?: string
+          valor?: number
         }
         Relationships: []
       }
@@ -99,6 +132,39 @@ export type Database = {
           id?: string
           produto?: string
           telefone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      configuracoes: {
+        Row: {
+          created_at: string
+          endereco_loja: string | null
+          id: string
+          logo_url: string | null
+          nome_loja: string | null
+          telefone_loja: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          endereco_loja?: string | null
+          id?: string
+          logo_url?: string | null
+          nome_loja?: string | null
+          telefone_loja?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          endereco_loja?: string | null
+          id?: string
+          logo_url?: string | null
+          nome_loja?: string | null
+          telefone_loja?: string | null
           updated_at?: string
           user_id?: string
         }
