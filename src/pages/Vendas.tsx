@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useLoja } from '@/hooks/useLoja';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +11,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit2, X, CalendarIcon, Filter, ShoppingCart, DollarSign, TrendingUp, FileText } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, CalendarIcon, Filter, ShoppingCart, DollarSign, TrendingUp, Eye, Download, Printer } from 'lucide-react';
 import { StatCard } from '@/components/StatCard';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -22,6 +23,7 @@ const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Ag
 
 export default function Vendas() {
   const { user } = useAuth();
+  const { lojaId } = useLoja();
   const [items, setItems] = useState<any[]>([]);
   const [config, setConfig] = useState<any>(null);
   const [produto, setProduto] = useState('');
@@ -47,13 +49,14 @@ export default function Vendas() {
   useEffect(() => {
     if (!user) return;
     load();
-    supabase.from('configuracoes').select('*').eq('user_id', user.id).maybeSingle().then(({ data }) => setConfig(data));
+    supabase.from('configuracoes').select('*').maybeSingle().then(({ data }) => setConfig(data));
   }, [user]);
 
   const save = async () => {
     if (!produto || !valor) { toast.error('Preencha todos os campos'); return; }
+    if (!lojaId) { toast.error('Erro: loja não identificada'); return; }
     const obj: any = {
-      produto, valor: parseFloat(valor), user_id: user!.id,
+      produto, valor: parseFloat(valor), user_id: user!.id, loja_id: lojaId,
       garantia_dias: temGarantia ? (parseInt(garantiaDias) || 0) : 0,
     };
     if (dataVenda) obj.created_at = dataVenda.toISOString();
@@ -85,9 +88,9 @@ export default function Vendas() {
     setEditId(item.id);
   };
 
-  const downloadPdf = (item: any) => {
-    gerarVendaPdf(item, config);
-    toast.success('PDF da venda gerado');
+  const handlePdf = (item: any, action: 'download' | 'view' | 'print') => {
+    gerarVendaPdf(item, config, action);
+    toast.success(action === 'download' ? 'PDF baixado' : action === 'view' ? 'PDF aberto' : 'Enviado para impressão');
   };
 
   const filtered = useMemo(() => {
@@ -246,8 +249,14 @@ export default function Vendas() {
                 </p>
               </div>
               <div className="flex gap-1">
-                <Button size="icon" variant="ghost" onClick={() => downloadPdf(item)} title="Gerar PDF">
-                  <FileText className="h-4 w-4 text-primary" />
+                <Button size="icon" variant="ghost" onClick={() => handlePdf(item, 'view')} title="Visualizar PDF">
+                  <Eye className="h-4 w-4 text-primary" />
+                </Button>
+                <Button size="icon" variant="ghost" onClick={() => handlePdf(item, 'download')} title="Baixar PDF">
+                  <Download className="h-4 w-4 text-primary" />
+                </Button>
+                <Button size="icon" variant="ghost" onClick={() => handlePdf(item, 'print')} title="Imprimir">
+                  <Printer className="h-4 w-4 text-primary" />
                 </Button>
                 <Button size="icon" variant="ghost" onClick={() => edit(item)}>
                   <Edit2 className="h-4 w-4" />

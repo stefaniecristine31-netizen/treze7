@@ -22,6 +22,7 @@ export type Database = {
           frete: number
           garantia: string | null
           id: string
+          loja_id: string | null
           lucro: number
           mao_de_obra: number
           numero_os: number
@@ -42,6 +43,7 @@ export type Database = {
           frete?: number
           garantia?: string | null
           id?: string
+          loja_id?: string | null
           lucro?: number
           mao_de_obra?: number
           numero_os?: number
@@ -62,6 +64,7 @@ export type Database = {
           frete?: number
           garantia?: string | null
           id?: string
+          loja_id?: string | null
           lucro?: number
           mao_de_obra?: number
           numero_os?: number
@@ -75,7 +78,15 @@ export type Database = {
           valor_peca?: number
           valor_servico?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "assistencias_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       caixa: {
         Row: {
@@ -83,6 +94,7 @@ export type Database = {
           data: string
           descricao: string | null
           id: string
+          loja_id: string | null
           tipo: string
           user_id: string
           valor: number
@@ -92,6 +104,7 @@ export type Database = {
           data?: string
           descricao?: string | null
           id?: string
+          loja_id?: string | null
           tipo: string
           user_id: string
           valor?: number
@@ -101,17 +114,27 @@ export type Database = {
           data?: string
           descricao?: string | null
           id?: string
+          loja_id?: string | null
           tipo?: string
           user_id?: string
           valor?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "caixa_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       compras: {
         Row: {
           cliente: string | null
           created_at: string
           id: string
+          loja_id: string | null
           produto: string
           telefone: string | null
           updated_at: string
@@ -121,6 +144,7 @@ export type Database = {
           cliente?: string | null
           created_at?: string
           id?: string
+          loja_id?: string | null
           produto: string
           telefone?: string | null
           updated_at?: string
@@ -130,12 +154,21 @@ export type Database = {
           cliente?: string | null
           created_at?: string
           id?: string
+          loja_id?: string | null
           produto?: string
           telefone?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "compras_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       configuracoes: {
         Row: {
@@ -143,6 +176,7 @@ export type Database = {
           endereco_loja: string | null
           id: string
           logo_url: string | null
+          loja_id: string | null
           nome_loja: string | null
           telefone_loja: string | null
           updated_at: string
@@ -153,6 +187,7 @@ export type Database = {
           endereco_loja?: string | null
           id?: string
           logo_url?: string | null
+          loja_id?: string | null
           nome_loja?: string | null
           telefone_loja?: string | null
           updated_at?: string
@@ -163,18 +198,32 @@ export type Database = {
           endereco_loja?: string | null
           id?: string
           logo_url?: string | null
+          loja_id?: string | null
           nome_loja?: string | null
           telefone_loja?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "configuracoes_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       despesas: {
         Row: {
           created_at: string
+          data_vencimento: string | null
           id: string
+          importante: boolean
+          loja_id: string | null
           nome: string | null
+          pago: boolean
+          recorrente: boolean
           tipo: string
           updated_at: string
           user_id: string
@@ -182,8 +231,13 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          data_vencimento?: string | null
           id?: string
+          importante?: boolean
+          loja_id?: string | null
           nome?: string | null
+          pago?: boolean
+          recorrente?: boolean
           tipo: string
           updated_at?: string
           user_id: string
@@ -191,20 +245,34 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          data_vencimento?: string | null
           id?: string
+          importante?: boolean
+          loja_id?: string | null
           nome?: string | null
+          pago?: boolean
+          recorrente?: boolean
           tipo?: string
           updated_at?: string
           user_id?: string
           valor?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "despesas_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       estoque: {
         Row: {
           created_at: string
           estoque_minimo: number
           id: string
+          loja_id: string | null
           produto: string
           quantidade: number
           updated_at: string
@@ -216,6 +284,7 @@ export type Database = {
           created_at?: string
           estoque_minimo?: number
           id?: string
+          loja_id?: string | null
           produto: string
           quantidade?: number
           updated_at?: string
@@ -227,12 +296,51 @@ export type Database = {
           created_at?: string
           estoque_minimo?: number
           id?: string
+          loja_id?: string | null
           produto?: string
           quantidade?: number
           updated_at?: string
           user_id?: string
           valor_custo?: number
           valor_venda?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estoque_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lojas: {
+        Row: {
+          created_at: string
+          email_responsavel: string | null
+          id: string
+          nome: string
+          pagamento: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email_responsavel?: string | null
+          id?: string
+          nome?: string
+          pagamento?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email_responsavel?: string | null
+          id?: string
+          nome?: string
+          pagamento?: string
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -241,6 +349,7 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          loja_id: string | null
           nome: string
           updated_at: string
           user_id: string
@@ -249,6 +358,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          loja_id?: string | null
           nome?: string
           updated_at?: string
           user_id: string
@@ -257,8 +367,35 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          loja_id?: string | null
           nome?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      super_admins: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
           user_id?: string
         }
         Relationships: []
@@ -290,6 +427,7 @@ export type Database = {
           created_at: string
           garantia_dias: number
           id: string
+          loja_id: string | null
           produto: string
           updated_at: string
           user_id: string
@@ -300,6 +438,7 @@ export type Database = {
           created_at?: string
           garantia_dias?: number
           id?: string
+          loja_id?: string | null
           produto: string
           updated_at?: string
           user_id: string
@@ -310,18 +449,28 @@ export type Database = {
           created_at?: string
           garantia_dias?: number
           id?: string
+          loja_id?: string | null
           produto?: string
           updated_at?: string
           user_id?: string
           valor?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "vendas_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      get_user_loja_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -329,6 +478,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "vendedor"

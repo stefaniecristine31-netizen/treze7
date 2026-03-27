@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useLoja } from '@/hooks/useLoja';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,19 +11,20 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { StatCard } from '@/components/StatCard';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit2, X, Wrench, DollarSign, CalendarDays, FileText, MessageCircle, CalendarIcon } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Wrench, DollarSign, CalendarDays, FileText, MessageCircle, CalendarIcon, Eye, Download, Printer } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { gerarOsPdf } from '@/lib/pdfUtils';
 
-const tecnicos = ['Marco', 'Terceiro'];
+const tecnicos = ['Assistência Loja', 'Assistência Terceirizada'];
 const garantias = ['3 meses', '6 meses', '1 semana', 'Outro'];
 const statusOptions = ['Em andamento', 'Concluído', 'Entregue'];
 
 export default function Assistencia() {
   const { user } = useAuth();
+  const { lojaId } = useLoja();
   const [items, setItems] = useState<any[]>([]);
   const [config, setConfig] = useState<any>(null);
   const [form, setForm] = useState({
@@ -44,7 +46,7 @@ export default function Assistencia() {
   useEffect(() => {
     if (!user) return;
     load();
-    supabase.from('configuracoes').select('*').eq('user_id', user.id).maybeSingle().then(({ data }) => setConfig(data));
+    supabase.from('configuracoes').select('*').maybeSingle().then(({ data }) => setConfig(data));
   }, [user]);
 
   const set = (field: string, value: string) => setForm(f => ({ ...f, [field]: value }));
@@ -59,6 +61,7 @@ export default function Assistencia() {
 
   const save = async () => {
     if (!form.cliente || !form.valor_servico) { toast.error('Preencha cliente e valor do serviço'); return; }
+    if (!lojaId) { toast.error('Erro: loja não identificada'); return; }
     const lucro = calcLucro();
     const obj: any = {
       cliente: form.cliente, telefone: form.telefone, aparelho: form.aparelho,
@@ -66,7 +69,7 @@ export default function Assistencia() {
       valor_peca: parseFloat(form.valor_peca) || 0, frete: parseFloat(form.frete) || 0,
       mao_de_obra: parseFloat(form.mao_de_obra) || 0, lucro,
       tecnico: form.tecnico, garantia: form.garantia, status: form.status,
-      observacao: form.observacao, user_id: user!.id,
+      observacao: form.observacao, user_id: user!.id, loja_id: lojaId,
     };
     if (dataAssist) obj.created_at = dataAssist.toISOString();
 
@@ -79,7 +82,7 @@ export default function Assistencia() {
       if (data) {
         await supabase.from('vendas').insert({
           produto: `Assistência - ${form.cliente}`, valor: lucro,
-          assistencia_id: data.id, user_id: user!.id,
+          assistencia_id: data.id, user_id: user!.id, loja_id: lojaId,
         });
       }
       toast.success('Assistência registrada');
@@ -118,9 +121,9 @@ export default function Assistencia() {
     window.open(`https://wa.me/55${phone}?text=${msg}`, '_blank');
   };
 
-  const downloadOs = (item: any) => {
-    gerarOsPdf(item, config);
-    toast.success('PDF da OS gerado');
+  const handleOs = (item: any, action: 'download' | 'view' | 'print') => {
+    gerarOsPdf(item, config, action);
+    toast.success(action === 'download' ? 'PDF baixado' : action === 'view' ? 'PDF aberto' : 'Enviado para impressão');
   };
 
   const filtered = useMemo(() => {
@@ -208,7 +211,7 @@ export default function Assistencia() {
       <div className="flex flex-col sm:flex-row gap-3">
         <Input placeholder="Buscar cliente..." value={busca} onChange={e => setBusca(e.target.value)} className="flex-1" />
         <Select value={filtroTecnico} onValueChange={setFiltroTecnico}>
-          <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos técnicos</SelectItem>
             {tecnicos.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
@@ -243,7 +246,9 @@ export default function Assistencia() {
                 </div>
                 <div className="flex flex-col gap-1">
                   <Button size="icon" variant="ghost" onClick={() => edit(item)} title="Editar"><Edit2 className="h-4 w-4" /></Button>
-                  <Button size="icon" variant="ghost" onClick={() => downloadOs(item)} title="Gerar OS PDF"><FileText className="h-4 w-4 text-primary" /></Button>
+                  <Button size="icon" variant="ghost" onClick={() => handleOs(item, 'view')} title="Visualizar OS"><Eye className="h-4 w-4 text-primary" /></Button>
+                  <Button size="icon" variant="ghost" onClick={() => handleOs(item, 'download')} title="Baixar OS"><Download className="h-4 w-4 text-primary" /></Button>
+                  <Button size="icon" variant="ghost" onClick={() => handleOs(item, 'print')} title="Imprimir OS"><Printer className="h-4 w-4 text-primary" /></Button>
                   <Button size="icon" variant="ghost" onClick={() => sendWhatsApp(item)} title="WhatsApp"><MessageCircle className="h-4 w-4 text-green-500" /></Button>
                   <Button size="icon" variant="ghost" className="text-destructive" onClick={() => remove(item.id)} title="Excluir"><Trash2 className="h-4 w-4" /></Button>
                 </div>

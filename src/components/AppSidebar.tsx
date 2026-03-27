@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, ShoppingCart, Receipt, Wrench, Package, ShoppingBag, LogOut, Settings, Wallet, FileBarChart
+  LayoutDashboard, ShoppingCart, Receipt, Wrench, Package, ShoppingBag, LogOut, Settings, Wallet, FileBarChart, Shield
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
@@ -11,24 +11,29 @@ import {
 import { Badge } from '@/components/ui/badge';
 
 const allItems = [
-  { title: 'Dashboard', url: '/', icon: LayoutDashboard, adminOnly: true },
-  { title: 'Vendas', url: '/vendas', icon: ShoppingCart, adminOnly: false },
-  { title: 'Despesas', url: '/despesas', icon: Receipt, adminOnly: true },
-  { title: 'Assistência', url: '/assistencia', icon: Wrench, adminOnly: false },
-  { title: 'Caixa', url: '/caixa', icon: Wallet, adminOnly: true },
-  { title: 'Estoque', url: '/estoque', icon: Package, adminOnly: false },
-  { title: 'Compras', url: '/compras', icon: ShoppingBag, adminOnly: false },
-  { title: 'Relatórios', url: '/relatorios', icon: FileBarChart, adminOnly: true },
-  { title: 'Configurações', url: '/configuracoes', icon: Settings, adminOnly: true },
+  { title: 'Dashboard', url: '/', icon: LayoutDashboard, adminOnly: true, superOnly: false },
+  { title: 'Vendas', url: '/vendas', icon: ShoppingCart, adminOnly: false, superOnly: false },
+  { title: 'Despesas', url: '/despesas', icon: Receipt, adminOnly: true, superOnly: false },
+  { title: 'Assistência', url: '/assistencia', icon: Wrench, adminOnly: false, superOnly: false },
+  { title: 'Caixa', url: '/caixa', icon: Wallet, adminOnly: true, superOnly: false },
+  { title: 'Estoque', url: '/estoque', icon: Package, adminOnly: false, superOnly: false },
+  { title: 'Compras', url: '/compras', icon: ShoppingBag, adminOnly: false, superOnly: false },
+  { title: 'Relatórios', url: '/relatorios', icon: FileBarChart, adminOnly: true, superOnly: false },
+  { title: 'Configurações', url: '/configuracoes', icon: Settings, adminOnly: true, superOnly: false },
+  { title: 'Admin Master', url: '/admin-master', icon: Shield, adminOnly: false, superOnly: true },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const { signOut, user } = useAuth();
-  const { isAdmin, role } = useRole();
+  const { isAdmin, isSuperAdmin, role } = useRole();
 
-  const items = allItems.filter(item => isAdmin || !item.adminOnly);
+  const items = allItems.filter(item => {
+    if (item.superOnly) return isSuperAdmin;
+    if (item.adminOnly) return isAdmin;
+    return true;
+  });
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
@@ -40,7 +45,7 @@ export function AppSidebar() {
             </h2>
             {role && (
               <Badge variant="outline" className="text-[10px] mt-1 border-sidebar-border text-sidebar-foreground/60">
-                {isAdmin ? '👑 Admin' : '👨‍💼 Vendedor'}
+                {isSuperAdmin ? '🛡️ Super Admin' : isAdmin ? '👑 Admin' : '👨‍💼 Vendedor'}
               </Badge>
             )}
           </div>

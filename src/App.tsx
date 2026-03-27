@@ -16,6 +16,7 @@ import Compras from "./pages/Compras";
 import Caixa from "./pages/Caixa";
 import Relatorios from "./pages/Relatorios";
 import Configuracoes from "./pages/Configuracoes";
+import AdminMaster from "./pages/AdminMaster";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/compras" element={<ProtectedRoute><AppLayout><Compras /></AppLayout></ProtectedRoute>} />
             <Route path="/relatorios" element={<ProtectedRoute adminOnly><AppLayout><Relatorios /></AppLayout></ProtectedRoute>} />
             <Route path="/configuracoes" element={<ProtectedRoute adminOnly><AppLayout><Configuracoes /></AppLayout></ProtectedRoute>} />
+            <Route path="/admin-master" element={<ProtectedRoute superAdminOnly><AppLayout><AdminMaster /></AppLayout></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

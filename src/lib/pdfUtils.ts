@@ -8,6 +8,8 @@ declare module 'jspdf' {
   }
 }
 
+export type PdfAction = 'download' | 'view' | 'print';
+
 const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
 async function addLogo(doc: jsPDF, logoUrl: string | null, x: number, y: number, maxH: number): Promise<number> {
@@ -55,23 +57,42 @@ function addHeader(doc: jsPDF, config: any, y: number): number {
   return y;
 }
 
-function savePdf(doc: jsPDF, filename: string) {
-  // Use blob URL for better mobile compatibility
+function handlePdfAction(doc: jsPDF, filename: string, action: PdfAction = 'download') {
   const blob = doc.output('blob');
   const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.style.display = 'none';
-  document.body.appendChild(link);
-  link.click();
-  setTimeout(() => {
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }, 100);
+
+  switch (action) {
+    case 'view': {
+      window.open(url, '_blank');
+      break;
+    }
+    case 'print': {
+      const printWindow = window.open(url, '_blank');
+      if (printWindow) {
+        printWindow.addEventListener('load', () => {
+          setTimeout(() => printWindow.print(), 500);
+        });
+      }
+      break;
+    }
+    case 'download':
+    default: {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 100);
+      break;
+    }
+  }
 }
 
-export async function gerarOsPdf(assistencia: any, config: any) {
+export async function gerarOsPdf(assistencia: any, config: any, action: PdfAction = 'download') {
   const doc = new jsPDF();
   const pw = doc.internal.pageSize.getWidth();
   let y = 15;
@@ -157,10 +178,11 @@ export async function gerarOsPdf(assistencia: any, config: any) {
   doc.text('Assinatura do Cliente', 52, y, { align: 'center' });
   doc.text('Assinatura da Loja', pw - 52, y, { align: 'center' });
 
-  savePdf(doc, `OS_${String(assistencia.numero_os || '').padStart(4, '0')}_${assistencia.cliente}.pdf`);
+  const filename = `OS_${String(assistencia.numero_os || '').padStart(4, '0')}_${assistencia.cliente}.pdf`;
+  handlePdfAction(doc, filename, action);
 }
 
-export async function gerarVendaPdf(venda: any, config: any) {
+export async function gerarVendaPdf(venda: any, config: any, action: PdfAction = 'download') {
   const doc = new jsPDF();
   const pw = doc.internal.pageSize.getWidth();
   let y = 15;
@@ -216,7 +238,8 @@ export async function gerarVendaPdf(venda: any, config: any) {
   doc.text('Assinatura do Cliente', 52, y, { align: 'center' });
   doc.text('Assinatura da Loja', pw - 52, y, { align: 'center' });
 
-  savePdf(doc, `Venda_${venda.produto}_${new Date(venda.created_at).toLocaleDateString('pt-BR').replace(/\//g, '-')}.pdf`);
+  const filename = `Venda_${venda.produto}_${new Date(venda.created_at).toLocaleDateString('pt-BR').replace(/\//g, '-')}.pdf`;
+  handlePdfAction(doc, filename, action);
 }
 
 export async function gerarRelatorioPdf(
@@ -224,7 +247,8 @@ export async function gerarRelatorioPdf(
   colunas: string[],
   dados: string[][],
   resumo: Record<string, string>,
-  config: any
+  config: any,
+  action: PdfAction = 'download'
 ) {
   const doc = new jsPDF();
   const pw = doc.internal.pageSize.getWidth();
@@ -269,5 +293,5 @@ export async function gerarRelatorioPdf(
     margin: { left: 14, right: 14 },
   });
 
-  savePdf(doc, `${titulo.replace(/\s/g, '_')}.pdf`);
+  handlePdfAction(doc, `${titulo.replace(/\s/g, '_')}.pdf`, action);
 }
