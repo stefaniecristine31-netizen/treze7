@@ -13,6 +13,7 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nome, setNome] = useState('');
+  const [codigoLoja, setCodigoLoja] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   if (loading) {
@@ -34,7 +35,7 @@ export default function Auth() {
       if (error) toast.error(error.message);
     } else {
       if (!nome.trim()) { toast.error('Informe seu nome'); setSubmitting(false); return; }
-      const { error } = await signUp(email, password, nome);
+      const { error } = await signUp(email, password, nome, codigoLoja.trim() || undefined);
       if (error) toast.error(error.message);
       else toast.success('Conta criada! Verifique seu email.');
     }
@@ -58,37 +59,27 @@ export default function Auth() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {!isLogin && (
-                <Input
-                  placeholder="Seu nome"
-                  value={nome}
-                  onChange={(e) => setNome(e.target.value)}
-                />
+                <>
+                  <Input placeholder="Seu nome" value={nome} onChange={(e) => setNome(e.target.value)} />
+                  <Input
+                    placeholder="Código da loja (opcional - para vendedores)"
+                    value={codigoLoja}
+                    onChange={(e) => setCodigoLoja(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground -mt-2">
+                    Se você é vendedor, peça o código da loja ao administrador. Deixe vazio para criar uma nova loja.
+                  </p>
+                </>
               )}
-              <Input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-              <Input
-                type="password"
-                placeholder="Senha"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-              />
+              <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <Input type="password" placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
               <Button type="submit" className="w-full" disabled={submitting}>
                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {isLogin ? 'Entrar' : 'Cadastrar'}
               </Button>
             </form>
             <div className="mt-4 text-center">
-              <button
-                onClick={() => setIsLogin(!isLogin)}
-                className="text-sm text-primary hover:underline"
-              >
+              <button onClick={() => setIsLogin(!isLogin)} className="text-sm text-primary hover:underline">
                 {isLogin ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Faça login'}
               </button>
             </div>
