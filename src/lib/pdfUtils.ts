@@ -1,12 +1,5 @@
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-    lastAutoTable: { finalY: number };
-  }
-}
+import autoTable from 'jspdf-autotable';
 
 export type PdfAction = 'download' | 'view' | 'print';
 
@@ -57,6 +50,10 @@ function addHeader(doc: jsPDF, config: any, y: number): number {
   return y;
 }
 
+function getLastAutoTableY(doc: jsPDF): number {
+  return (doc as any).lastAutoTable?.finalY ?? 50;
+}
+
 function handlePdfAction(doc: jsPDF, filename: string, action: PdfAction = 'download') {
   const blob = doc.output('blob');
   const url = URL.createObjectURL(blob);
@@ -102,14 +99,14 @@ export async function gerarOsPdf(assistencia: any, config: any, action: PdfActio
 
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text(`ORDEM DE SERVIÇO #${String(assistencia.numero_os || '').padStart(4, '0')}`, pw / 2, y, { align: 'center' });
+  doc.text(`ORDEM DE SERVICO #${String(assistencia.numero_os || '').padStart(4, '0')}`, pw / 2, y, { align: 'center' });
   y += 4;
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.text(`Data: ${new Date(assistencia.created_at).toLocaleDateString('pt-BR')}`, pw / 2, y, { align: 'center' });
   y += 10;
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: y,
     head: [['DADOS DO CLIENTE']],
     body: [
@@ -122,15 +119,15 @@ export async function gerarOsPdf(assistencia: any, config: any, action: PdfActio
     styles: { fontSize: 9 },
     margin: { left: 14, right: 14 },
   });
-  y = doc.lastAutoTable.finalY + 6;
+  y = getLastAutoTableY(doc) + 6;
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: y,
-    head: [['DETALHES DO SERVIÇO']],
+    head: [['DETALHES DO SERVICO']],
     body: [
-      [`Serviço: ${assistencia.servico || '-'}`],
-      [`Técnico: ${assistencia.tecnico || '-'}`],
-      [`Valor do Serviço: ${fmt(assistencia.valor_servico)}`],
+      [`Servico: ${assistencia.servico || '-'}`],
+      [`Tecnico: ${assistencia.tecnico || '-'}`],
+      [`Valor do Servico: ${fmt(assistencia.valor_servico)}`],
       [`Garantia: ${assistencia.garantia || '-'}`],
       [`Status: ${assistencia.status}`],
     ],
@@ -139,31 +136,31 @@ export async function gerarOsPdf(assistencia: any, config: any, action: PdfActio
     styles: { fontSize: 9 },
     margin: { left: 14, right: 14 },
   });
-  y = doc.lastAutoTable.finalY + 6;
+  y = getLastAutoTableY(doc) + 6;
 
   if (assistencia.observacao) {
-    doc.autoTable({
+    autoTable(doc, {
       startY: y,
-      head: [['OBSERVAÇÕES']],
+      head: [['OBSERVACOES']],
       body: [[assistencia.observacao]],
       theme: 'grid',
       headStyles: { fillColor: [59, 130, 246], fontSize: 10 },
       styles: { fontSize: 9 },
       margin: { left: 14, right: 14 },
     });
-    y = doc.lastAutoTable.finalY + 6;
+    y = getLastAutoTableY(doc) + 6;
   }
 
   y += 4;
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  doc.text('TERMOS E CONDIÇÕES:', 14, y);
+  doc.text('TERMOS E CONDICOES:', 14, y);
   y += 5;
   doc.setFont('helvetica', 'normal');
   const termos = [
-    '• Não nos responsabilizamos por perda de dados.',
-    '• Garantia não cobre mau uso.',
-    '• Após a conclusão do serviço, o cliente será comunicado. Aparelhos não retirados',
+    '- Nao nos responsabilizamos por perda de dados.',
+    '- Garantia nao cobre mau uso.',
+    '- Apos a conclusao do servico, o cliente sera comunicado. Aparelhos nao retirados',
     '  no prazo de 3 dias isentam a loja de qualquer responsabilidade sobre o equipamento.',
   ];
   termos.forEach(t => { doc.text(t, 14, y); y += 4; });
@@ -195,7 +192,7 @@ export async function gerarVendaPdf(venda: any, config: any, action: PdfAction =
   doc.text('COMPROVANTE DE VENDA', pw / 2, y, { align: 'center' });
   y += 10;
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: y,
     head: [['DADOS DA VENDA']],
     body: [
@@ -209,23 +206,23 @@ export async function gerarVendaPdf(venda: any, config: any, action: PdfAction =
     styles: { fontSize: 9 },
     margin: { left: 14, right: 14 },
   });
-  y = doc.lastAutoTable.finalY + 6;
+  y = getLastAutoTableY(doc) + 6;
 
   if ((venda.garantia_dias || 0) > 0) {
-    doc.autoTable({
+    autoTable(doc, {
       startY: y,
       head: [['TERMOS DE GARANTIA']],
       body: [[
-        'Esta garantia cobre apenas defeitos de fabricação, não incluindo mau uso, ' +
-        'danos por quedas, líquidos ou uso inadequado do produto. ' +
-        `Válida por ${venda.garantia_dias} dias a partir da data da compra.`
+        'Esta garantia cobre apenas defeitos de fabricacao, nao incluindo mau uso, ' +
+        'danos por quedas, liquidos ou uso inadequado do produto. ' +
+        `Valida por ${venda.garantia_dias} dias a partir da data da compra.`
       ]],
       theme: 'grid',
       headStyles: { fillColor: [59, 130, 246], fontSize: 10 },
       styles: { fontSize: 9 },
       margin: { left: 14, right: 14 },
     });
-    y = doc.lastAutoTable.finalY + 6;
+    y = getLastAutoTableY(doc) + 6;
   }
 
   y += 15;
@@ -271,19 +268,19 @@ export async function gerarRelatorioPdf(
 
   const entries = Object.entries(resumo);
   if (entries.length > 0) {
-    doc.autoTable({
+    autoTable(doc, {
       startY: y,
       head: [entries.map(([k]) => k)],
       body: [entries.map(([, v]) => v)],
       theme: 'grid',
       headStyles: { fillColor: [59, 130, 246], fontSize: 9 },
-      styles: { fontSize: 9, halign: 'center' },
+      styles: { fontSize: 9, halign: 'center' as const },
       margin: { left: 14, right: 14 },
     });
-    y = doc.lastAutoTable.finalY + 6;
+    y = getLastAutoTableY(doc) + 6;
   }
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: y,
     head: [colunas],
     body: dados,
