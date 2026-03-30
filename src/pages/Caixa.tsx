@@ -13,6 +13,7 @@ import { useLoja } from '@/hooks/useLoja';
 
 export default function Caixa() {
   const { user } = useAuth();
+  const { lojaId } = useLoja();
   const [items, setItems] = useState<any[]>([]);
   const [tipo, setTipo] = useState('entrada');
   const [descricao, setDescricao] = useState('');
