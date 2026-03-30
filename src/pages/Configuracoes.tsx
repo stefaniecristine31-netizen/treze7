@@ -93,7 +93,7 @@ export default function Configuracoes() {
 
   const changeRole = async (userId: string, newRole: string) => {
     if (userId === user?.id) { toast.error('Você não pode alterar seu próprio papel'); return; }
-    const { error } = await supabase.from('user_roles').update({ role: newRole }).eq('user_id', userId);
+    const { error } = await supabase.from('user_roles').update({ role: newRole as 'admin' | 'vendedor' }).eq('user_id', userId);
     if (error) { toast.error('Erro ao alterar papel'); return; }
     setRoles(prev => ({ ...prev, [userId]: newRole }));
     toast.success('Papel atualizado');
