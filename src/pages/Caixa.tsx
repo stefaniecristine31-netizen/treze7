@@ -42,8 +42,9 @@ export default function Caixa() {
 
   const addMovimento = async () => {
     if (!valor || !descricao) { toast.error('Preencha descrição e valor'); return; }
+    if (!lojaId) { toast.error('Erro: loja não identificada'); return; }
     await supabase.from('caixa').insert({
-      user_id: user!.id, tipo, descricao, valor: parseFloat(valor), data: hoje,
+      user_id: user!.id, loja_id: lojaId, tipo, descricao, valor: parseFloat(valor), data: hoje,
     });
     setValor(''); setDescricao(''); toast.success('Movimento registrado'); load();
   };
