@@ -2,17 +2,19 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useRole } from '@/hooks/useRole';
+import { useLoja } from '@/hooks/useLoja';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Upload, Trash2, Save, Store, UserPlus, Users } from 'lucide-react';
+import { Upload, Trash2, Save, Store, Users, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 export default function Configuracoes() {
   const { user } = useAuth();
   const { isAdmin } = useRole();
+  const { lojaId } = useLoja();
   const [nomeLoja, setNomeLoja] = useState('Treze7');
   const [telefoneLoja, setTelefoneLoja] = useState('');
   const [enderecoLoja, setEnderecoLoja] = useState('');
@@ -22,11 +24,12 @@ export default function Configuracoes() {
 
   // User management
   const [usuarios, setUsuarios] = useState<any[]>([]);
+  const [roles, setRoles] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !lojaId) return;
     const load = async () => {
-      const { data } = await supabase.from('configuracoes').select('*').eq('user_id', user.id).maybeSingle();
+      const { data } = await supabase.from('configuracoes').select('*').eq('loja_id', lojaId).maybeSingle();
       if (data) {
         setConfigId(data.id);
         setNomeLoja(data.nome_loja || 'Treze7');
@@ -34,16 +37,25 @@ export default function Configuracoes() {
         setEnderecoLoja(data.endereco_loja || '');
         setLogoUrl(data.logo_url || null);
       }
+
+      if (isAdmin) {
+        const { data: profiles } = await supabase.from('profiles').select('*').eq('loja_id', lojaId);
+        setUsuarios(profiles || []);
+        const { data: userRoles } = await supabase.from('user_roles').select('*');
+        const rolesMap: Record<string, string> = {};
+        (userRoles || []).forEach((r: any) => { rolesMap[r.user_id] = r.role; });
+        setRoles(rolesMap);
+      }
     };
     load();
-  }, [user]);
+  }, [user, lojaId, isAdmin]);
 
   const uploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
     setUploading(true);
     const ext = file.name.split('.').pop();
-    const path = `${user.id}/logo.${ext}`;
+    const path = `${lojaId || user.id}/logo.${ext}`;
     await supabase.storage.from('logos').remove([path]);
     const { error } = await supabase.storage.from('logos').upload(path, file, { upsert: true });
     if (error) { toast.error('Erro ao enviar logo'); setUploading(false); return; }
@@ -55,19 +67,20 @@ export default function Configuracoes() {
 
   const removeLogo = async () => {
     if (!user) return;
-    const { data: files } = await supabase.storage.from('logos').list(user.id);
+    const prefix = lojaId || user.id;
+    const { data: files } = await supabase.storage.from('logos').list(prefix);
     if (files?.length) {
-      await supabase.storage.from('logos').remove(files.map(f => `${user.id}/${f.name}`));
+      await supabase.storage.from('logos').remove(files.map(f => `${prefix}/${f.name}`));
     }
     setLogoUrl(null);
     toast.success('Logo removida');
   };
 
   const save = async () => {
-    if (!user) return;
+    if (!user || !lojaId) return;
     const obj = {
-      user_id: user.id, nome_loja: nomeLoja, telefone_loja: telefoneLoja,
-      endereco_loja: enderecoLoja, logo_url: logoUrl,
+      user_id: user.id, loja_id: lojaId, nome_loja: nomeLoja,
+      telefone_loja: telefoneLoja, endereco_loja: enderecoLoja, logo_url: logoUrl,
     };
     if (configId) {
       await supabase.from('configuracoes').update(obj).eq('id', configId);
@@ -76,6 +89,14 @@ export default function Configuracoes() {
       if (data) setConfigId(data.id);
     }
     toast.success('Configurações salvas');
+  };
+
+  const changeRole = async (userId: string, newRole: string) => {
+    if (userId === user?.id) { toast.error('Você não pode alterar seu próprio papel'); return; }
+    const { error } = await supabase.from('user_roles').update({ role: newRole as 'admin' | 'vendedor' }).eq('user_id', userId);
+    if (error) { toast.error('Erro ao alterar papel'); return; }
+    setRoles(prev => ({ ...prev, [userId]: newRole }));
+    toast.success('Papel atualizado');
   };
 
   return (
@@ -114,30 +135,45 @@ export default function Configuracoes() {
         </CardContent>
       </Card>
 
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><Users className="h-5 w-5" /> Gestão de Usuários</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-3">
-            Para adicionar um vendedor, peça para ele criar uma conta normalmente. Novos usuários recebem o papel de <strong>admin</strong> por padrão.
-            Para alterar o papel de um usuário, entre em contato com o suporte.
-          </p>
-          <div className="p-3 rounded-lg bg-muted/50 text-sm">
-            <p className="font-medium">Papéis disponíveis:</p>
-            <div className="mt-2 space-y-1">
-              <div className="flex items-center gap-2">
-                <Badge>👑 Admin</Badge>
-                <span className="text-muted-foreground">Acesso total ao sistema</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary">👨‍💼 Vendedor</Badge>
-                <span className="text-muted-foreground">Vendas, Assistência, Compras, Estoque</span>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {isAdmin && (
+        <Card className="shadow-card">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2"><Users className="h-5 w-5" /> Gestão de Usuários</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {usuarios.length === 0 && <p className="text-sm text-muted-foreground">Nenhum usuário encontrado.</p>}
+            {usuarios.map(u => {
+              const role = roles[u.user_id] || 'vendedor';
+              const isMe = u.user_id === user?.id;
+              return (
+                <div key={u.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                  <div className="flex items-center gap-3">
+                    {role === 'admin' ? <ShieldCheck className="h-5 w-5 text-primary" /> : <ShieldAlert className="h-5 w-5 text-muted-foreground" />}
+                    <div>
+                      <p className="font-medium text-sm">{u.nome || 'Sem nome'} {isMe && <Badge variant="outline" className="ml-1 text-xs">Você</Badge>}</p>
+                      <p className="text-xs text-muted-foreground">{u.email}</p>
+                    </div>
+                  </div>
+                  {isMe ? (
+                    <Badge>{role === 'admin' ? '👑 Admin' : '👨‍💼 Vendedor'}</Badge>
+                  ) : (
+                    <Select value={role} onValueChange={(v) => changeRole(u.user_id, v)}>
+                      <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">👑 Admin</SelectItem>
+                        <SelectItem value="vendedor">👨‍💼 Vendedor</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              );
+            })}
+            <p className="text-xs text-muted-foreground mt-2">
+              Para adicionar um vendedor, peça para ele criar uma conta usando o código da loja.
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

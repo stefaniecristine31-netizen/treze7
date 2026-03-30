@@ -7,9 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Plus, Trash2, Edit2, X, Search, AlertTriangle, Package } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { useLoja } from '@/hooks/useLoja';
 
 export default function Estoque() {
   const { user } = useAuth();
+  const { lojaId } = useLoja();
   const [items, setItems] = useState<any[]>([]);
   const [produto, setProduto] = useState('');
   const [quantidade, setQuantidade] = useState('');
@@ -28,12 +30,13 @@ export default function Estoque() {
 
   const save = async () => {
     if (!produto || !quantidade) { toast.error('Preencha produto e quantidade'); return; }
+    if (!lojaId) { toast.error('Erro: loja não identificada'); return; }
     const obj: any = {
       produto, quantidade: parseInt(quantidade),
       valor_custo: parseFloat(valorCusto) || 0,
       valor_venda: parseFloat(valorVenda) || 0,
       estoque_minimo: parseInt(estoqueMinimo) || 0,
-      user_id: user!.id,
+      user_id: user!.id, loja_id: lojaId,
     };
     if (editId) {
       await supabase.from('estoque').update(obj).eq('id', editId);

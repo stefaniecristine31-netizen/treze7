@@ -9,9 +9,11 @@ import { StatCard } from '@/components/StatCard';
 import { toast } from 'sonner';
 import { DollarSign, TrendingUp, TrendingDown, Lock, Unlock, Plus, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { useLoja } from '@/hooks/useLoja';
 
 export default function Caixa() {
   const { user } = useAuth();
+  const { lojaId } = useLoja();
   const [items, setItems] = useState<any[]>([]);
   const [tipo, setTipo] = useState('entrada');
   const [descricao, setDescricao] = useState('');
@@ -30,8 +32,9 @@ export default function Caixa() {
 
   const abrirCaixa = async () => {
     if (!valor) { toast.error('Informe o valor de abertura'); return; }
+    if (!lojaId) { toast.error('Erro: loja não identificada'); return; }
     await supabase.from('caixa').insert({
-      user_id: user!.id, tipo: 'abertura', descricao: 'Abertura de caixa',
+      user_id: user!.id, loja_id: lojaId, tipo: 'abertura', descricao: 'Abertura de caixa',
       valor: parseFloat(valor), data: hoje,
     });
     setValor(''); toast.success('Caixa aberto'); load();
@@ -39,15 +42,17 @@ export default function Caixa() {
 
   const addMovimento = async () => {
     if (!valor || !descricao) { toast.error('Preencha descrição e valor'); return; }
+    if (!lojaId) { toast.error('Erro: loja não identificada'); return; }
     await supabase.from('caixa').insert({
-      user_id: user!.id, tipo, descricao, valor: parseFloat(valor), data: hoje,
+      user_id: user!.id, loja_id: lojaId, tipo, descricao, valor: parseFloat(valor), data: hoje,
     });
     setValor(''); setDescricao(''); toast.success('Movimento registrado'); load();
   };
 
   const fecharCaixa = async () => {
+    if (!lojaId) { toast.error('Erro: loja não identificada'); return; }
     await supabase.from('caixa').insert({
-      user_id: user!.id, tipo: 'fechamento', descricao: 'Fechamento de caixa',
+      user_id: user!.id, loja_id: lojaId, tipo: 'fechamento', descricao: 'Fechamento de caixa',
       valor: saldo, data: hoje,
     });
     toast.success('Caixa fechado'); load();

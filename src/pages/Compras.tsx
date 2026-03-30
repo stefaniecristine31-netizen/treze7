@@ -6,9 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Plus, Trash2, Edit2, X } from 'lucide-react';
+import { useLoja } from '@/hooks/useLoja';
 
 export default function Compras() {
   const { user } = useAuth();
+  const { lojaId } = useLoja();
   const [items, setItems] = useState<any[]>([]);
   const [produto, setProduto] = useState('');
   const [cliente, setCliente] = useState('');
@@ -24,7 +26,8 @@ export default function Compras() {
 
   const save = async () => {
     if (!produto) { toast.error('Preencha o produto'); return; }
-    const obj = { produto, cliente, telefone, user_id: user!.id };
+    if (!lojaId) { toast.error('Erro: loja não identificada'); return; }
+    const obj = { produto, cliente, telefone, user_id: user!.id, loja_id: lojaId };
     if (editId) {
       await supabase.from('compras').update(obj).eq('id', editId);
       toast.success('Compra atualizada');
