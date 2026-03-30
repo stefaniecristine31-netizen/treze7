@@ -32,8 +32,9 @@ export default function Caixa() {
 
   const abrirCaixa = async () => {
     if (!valor) { toast.error('Informe o valor de abertura'); return; }
+    if (!lojaId) { toast.error('Erro: loja não identificada'); return; }
     await supabase.from('caixa').insert({
-      user_id: user!.id, tipo: 'abertura', descricao: 'Abertura de caixa',
+      user_id: user!.id, loja_id: lojaId, tipo: 'abertura', descricao: 'Abertura de caixa',
       valor: parseFloat(valor), data: hoje,
     });
     setValor(''); toast.success('Caixa aberto'); load();
