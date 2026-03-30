@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Plus, Trash2, Edit2, X, Search, AlertTriangle, Package } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { useLoja } from '@/hooks/useLoja';
 
 export default function Estoque() {
   const { user } = useAuth();
