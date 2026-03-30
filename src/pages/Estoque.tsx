@@ -30,12 +30,13 @@ export default function Estoque() {
 
   const save = async () => {
     if (!produto || !quantidade) { toast.error('Preencha produto e quantidade'); return; }
+    if (!lojaId) { toast.error('Erro: loja não identificada'); return; }
     const obj: any = {
       produto, quantidade: parseInt(quantidade),
       valor_custo: parseFloat(valorCusto) || 0,
       valor_venda: parseFloat(valorVenda) || 0,
       estoque_minimo: parseInt(estoqueMinimo) || 0,
-      user_id: user!.id,
+      user_id: user!.id, loja_id: lojaId,
     };
     if (editId) {
       await supabase.from('estoque').update(obj).eq('id', editId);

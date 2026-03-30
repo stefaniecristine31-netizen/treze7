@@ -26,7 +26,8 @@ export default function Compras() {
 
   const save = async () => {
     if (!produto) { toast.error('Preencha o produto'); return; }
-    const obj = { produto, cliente, telefone, user_id: user!.id };
+    if (!lojaId) { toast.error('Erro: loja não identificada'); return; }
+    const obj = { produto, cliente, telefone, user_id: user!.id, loja_id: lojaId };
     if (editId) {
       await supabase.from('compras').update(obj).eq('id', editId);
       toast.success('Compra atualizada');
