@@ -9,6 +9,7 @@ import { StatCard } from '@/components/StatCard';
 import { toast } from 'sonner';
 import { DollarSign, TrendingUp, TrendingDown, Lock, Unlock, Plus, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { useLoja } from '@/hooks/useLoja';
 
 export default function Caixa() {
   const { user } = useAuth();
