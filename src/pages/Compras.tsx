@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Plus, Trash2, Edit2, X } from 'lucide-react';
+import { useLoja } from '@/hooks/useLoja';
 
 export default function Compras() {
   const { user } = useAuth();
