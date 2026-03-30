@@ -10,6 +10,7 @@ import { useLoja } from '@/hooks/useLoja';
 
 export default function Compras() {
   const { user } = useAuth();
+  const { lojaId } = useLoja();
   const [items, setItems] = useState<any[]>([]);
   const [produto, setProduto] = useState('');
   const [cliente, setCliente] = useState('');
