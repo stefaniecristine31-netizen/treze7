@@ -344,6 +344,62 @@ export type Database = {
         }
         Relationships: []
       }
+      precos_servicos: {
+        Row: {
+          created_at: string
+          frete: number
+          id: string
+          loja_id: string | null
+          lucro_loja: number
+          mao_de_obra: number
+          marca: string
+          modelo: string
+          servico: string
+          updated_at: string
+          user_id: string
+          valor_final: number
+          valor_peca: number
+        }
+        Insert: {
+          created_at?: string
+          frete?: number
+          id?: string
+          loja_id?: string | null
+          lucro_loja?: number
+          mao_de_obra?: number
+          marca: string
+          modelo: string
+          servico: string
+          updated_at?: string
+          user_id: string
+          valor_final?: number
+          valor_peca?: number
+        }
+        Update: {
+          created_at?: string
+          frete?: number
+          id?: string
+          loja_id?: string | null
+          lucro_loja?: number
+          mao_de_obra?: number
+          marca?: string
+          modelo?: string
+          servico?: string
+          updated_at?: string
+          user_id?: string
+          valor_final?: number
+          valor_peca?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "precos_servicos_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
