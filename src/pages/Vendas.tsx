@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLoja } from '@/hooks/useLoja';
+import { usePersistedFilter, clearPersistedFilters } from '@/hooks/usePersistedFilter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,7 +12,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit2, X, CalendarIcon, Filter, ShoppingCart, DollarSign, TrendingUp, Eye, Download, Printer } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, CalendarIcon, Filter, ShoppingCart, DollarSign, TrendingUp, Eye, Download, Printer, FilterX } from 'lucide-react';
 import { StatCard } from '@/components/StatCard';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -20,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { gerarVendaPdf } from '@/lib/pdfUtils';
 
 const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const PREFIX = 'filtro_vendas_';
 
 export default function Vendas() {
   const { user } = useAuth();
@@ -32,14 +34,19 @@ export default function Vendas() {
   const [temGarantia, setTemGarantia] = useState(false);
   const [garantiaDias, setGarantiaDias] = useState('');
   const [editId, setEditId] = useState<string | null>(null);
-  const [busca, setBusca] = useState('');
-  const [ordem, setOrdem] = useState('recente');
-  const [filtroMes, setFiltroMes] = useState('todos');
-  const [dataInicio, setDataInicio] = useState<Date | undefined>(undefined);
-  const [dataFim, setDataFim] = useState<Date | undefined>(undefined);
-  const [valorMin, setValorMin] = useState('');
-  const [valorMax, setValorMax] = useState('');
+
+  // Persistent filters
+  const [busca, setBusca] = usePersistedFilter(PREFIX + 'busca', '');
+  const [ordem, setOrdem] = usePersistedFilter(PREFIX + 'ordem', 'recente');
+  const [filtroMes, setFiltroMes] = usePersistedFilter(PREFIX + 'mes', 'todos');
+  const [dataInicio, setDataInicio] = usePersistedFilter<string | undefined>(PREFIX + 'dataInicio', undefined);
+  const [dataFim, setDataFim] = usePersistedFilter<string | undefined>(PREFIX + 'dataFim', undefined);
+  const [valorMin, setValorMin] = usePersistedFilter(PREFIX + 'valorMin', '');
+  const [valorMax, setValorMax] = usePersistedFilter(PREFIX + 'valorMax', '');
   const [showFilters, setShowFilters] = useState(false);
+
+  const dataInicioDate = dataInicio ? new Date(dataInicio) : undefined;
+  const dataFimDate = dataFim ? new Date(dataFim) : undefined;
 
   const load = async () => {
     const { data } = await supabase.from('vendas').select('*').order('created_at', { ascending: false });
@@ -100,9 +107,9 @@ export default function Vendas() {
       const monthIdx = meses.indexOf(filtroMes);
       if (monthIdx >= 0) result = result.filter(i => new Date(i.created_at).getMonth() === monthIdx);
     }
-    if (dataInicio) result = result.filter(i => new Date(i.created_at) >= dataInicio);
-    if (dataFim) {
-      const fim = new Date(dataFim); fim.setHours(23, 59, 59);
+    if (dataInicioDate) result = result.filter(i => new Date(i.created_at) >= dataInicioDate);
+    if (dataFimDate) {
+      const fim = new Date(dataFimDate); fim.setHours(23, 59, 59);
       result = result.filter(i => new Date(i.created_at) <= fim);
     }
     if (valorMin) result = result.filter(i => Number(i.valor) >= parseFloat(valorMin));
@@ -120,7 +127,10 @@ export default function Vendas() {
   const ticketMedio = filtered.length > 0 ? totalVendas / filtered.length : 0;
   const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
+  const hasActiveFilters = busca || filtroMes !== 'todos' || dataInicio || dataFim || valorMin || valorMax;
+
   const clearFilters = () => {
+    clearPersistedFilters(PREFIX);
     setBusca(''); setFiltroMes('todos'); setDataInicio(undefined); setDataFim(undefined);
     setValorMin(''); setValorMax('');
   };
@@ -187,6 +197,11 @@ export default function Vendas() {
           <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
             <Filter className="mr-2 h-4 w-4" />Filtros
           </Button>
+          {hasActiveFilters && (
+            <Button variant="destructive" size="sm" onClick={clearFilters}>
+              <FilterX className="mr-2 h-4 w-4" />Limpar filtros
+            </Button>
+          )}
         </div>
 
         {showFilters && (
@@ -202,24 +217,24 @@ export default function Vendas() {
                 </Select>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dataInicio && "text-muted-foreground")}>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dataInicioDate && "text-muted-foreground")}>
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dataInicio ? format(dataInicio, "dd/MM/yyyy") : "Data início"}
+                      {dataInicioDate ? format(dataInicioDate, "dd/MM/yyyy") : "Data início"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={dataInicio} onSelect={setDataInicio} initialFocus className="p-3 pointer-events-auto" />
+                    <Calendar mode="single" selected={dataInicioDate} onSelect={d => setDataInicio(d?.toISOString())} initialFocus className="p-3 pointer-events-auto" />
                   </PopoverContent>
                 </Popover>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dataFim && "text-muted-foreground")}>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dataFimDate && "text-muted-foreground")}>
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dataFim ? format(dataFim, "dd/MM/yyyy") : "Data fim"}
+                      {dataFimDate ? format(dataFimDate, "dd/MM/yyyy") : "Data fim"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={dataFim} onSelect={setDataFim} initialFocus className="p-3 pointer-events-auto" />
+                    <Calendar mode="single" selected={dataFimDate} onSelect={d => setDataFim(d?.toISOString())} initialFocus className="p-3 pointer-events-auto" />
                   </PopoverContent>
                 </Popover>
                 <div className="flex gap-2">
@@ -227,7 +242,6 @@ export default function Vendas() {
                   <Input placeholder="Valor máx" type="number" value={valorMax} onChange={e => setValorMax(e.target.value)} />
                 </div>
               </div>
-              <Button variant="ghost" size="sm" onClick={clearFilters}>Limpar filtros</Button>
             </CardContent>
           </Card>
         )}

@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLoja } from '@/hooks/useLoja';
+import { usePersistedFilter, clearPersistedFilters } from '@/hooks/usePersistedFilter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { StatCard } from '@/components/StatCard';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit2, X, CalendarIcon, Filter, Receipt, DollarSign, Star, RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, CalendarIcon, Filter, FilterX, Receipt, DollarSign, Star, RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -22,6 +23,8 @@ const tiposDespesa = [
   'Aluguel', 'Água', 'Luz', 'Internet', 'CNPJ', 'Financiamento',
   'Compra Sininho', 'Compra Ana', 'Royalts Leonardo', 'Outro'
 ];
+
+const PREFIX = 'filtro_despesas_';
 
 export default function Despesas() {
   const { user } = useAuth();
@@ -37,13 +40,16 @@ export default function Despesas() {
   const [importante, setImportante] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
 
-  // Filters
-  const [busca, setBusca] = useState('');
-  const [filtroTipo, setFiltroTipo] = useState('todos');
-  const [filtroPago, setFiltroPago] = useState('todos');
-  const [dataInicio, setDataInicio] = useState<Date | undefined>(undefined);
-  const [dataFim, setDataFim] = useState<Date | undefined>(undefined);
+  // Persistent filters
+  const [busca, setBusca] = usePersistedFilter(PREFIX + 'busca', '');
+  const [filtroTipo, setFiltroTipo] = usePersistedFilter(PREFIX + 'tipo', 'todos');
+  const [filtroPago, setFiltroPago] = usePersistedFilter(PREFIX + 'pago', 'todos');
+  const [dataInicio, setDataInicio] = usePersistedFilter<string | undefined>(PREFIX + 'dataInicio', undefined);
+  const [dataFim, setDataFim] = usePersistedFilter<string | undefined>(PREFIX + 'dataFim', undefined);
   const [showFilters, setShowFilters] = useState(false);
+
+  const dataInicioDate = dataInicio ? new Date(dataInicio) : undefined;
+  const dataFimDate = dataFim ? new Date(dataFim) : undefined;
 
   const load = async () => {
     const { data } = await supabase.from('despesas').select('*').order('created_at', { ascending: false });
@@ -109,9 +115,9 @@ export default function Despesas() {
     if (filtroTipo !== 'todos') result = result.filter(i => i.tipo === filtroTipo);
     if (filtroPago === 'pago') result = result.filter(i => i.pago);
     if (filtroPago === 'pendente') result = result.filter(i => !i.pago);
-    if (dataInicio) result = result.filter(i => new Date(i.created_at) >= dataInicio);
-    if (dataFim) {
-      const fim = new Date(dataFim); fim.setHours(23, 59, 59);
+    if (dataInicioDate) result = result.filter(i => new Date(i.created_at) >= dataInicioDate);
+    if (dataFimDate) {
+      const fim = new Date(dataFimDate); fim.setHours(23, 59, 59);
       result = result.filter(i => new Date(i.created_at) <= fim);
     }
     return result;
@@ -126,7 +132,10 @@ export default function Despesas() {
   });
   const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
+  const hasActiveFilters = busca || filtroTipo !== 'todos' || filtroPago !== 'todos' || dataInicio || dataFim;
+
   const clearFilters = () => {
+    clearPersistedFilters(PREFIX);
     setBusca(''); setFiltroTipo('todos'); setFiltroPago('todos'); setDataInicio(undefined); setDataFim(undefined);
   };
 
@@ -226,6 +235,11 @@ export default function Despesas() {
           <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
             <Filter className="mr-2 h-4 w-4" />Filtros
           </Button>
+          {hasActiveFilters && (
+            <Button variant="destructive" size="sm" onClick={clearFilters}>
+              <FilterX className="mr-2 h-4 w-4" />Limpar filtros
+            </Button>
+          )}
         </div>
 
         {showFilters && (
@@ -249,28 +263,27 @@ export default function Despesas() {
                 </Select>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dataInicio && "text-muted-foreground")}>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dataInicioDate && "text-muted-foreground")}>
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dataInicio ? format(dataInicio, "dd/MM/yyyy") : "Data início"}
+                      {dataInicioDate ? format(dataInicioDate, "dd/MM/yyyy") : "Data início"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={dataInicio} onSelect={setDataInicio} initialFocus className="p-3 pointer-events-auto" />
+                    <Calendar mode="single" selected={dataInicioDate} onSelect={d => setDataInicio(d?.toISOString())} initialFocus className="p-3 pointer-events-auto" />
                   </PopoverContent>
                 </Popover>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dataFim && "text-muted-foreground")}>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dataFimDate && "text-muted-foreground")}>
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dataFim ? format(dataFim, "dd/MM/yyyy") : "Data fim"}
+                      {dataFimDate ? format(dataFimDate, "dd/MM/yyyy") : "Data fim"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={dataFim} onSelect={setDataFim} initialFocus className="p-3 pointer-events-auto" />
+                    <Calendar mode="single" selected={dataFimDate} onSelect={d => setDataFim(d?.toISOString())} initialFocus className="p-3 pointer-events-auto" />
                   </PopoverContent>
                 </Popover>
               </div>
-              <Button variant="ghost" size="sm" onClick={clearFilters}>Limpar filtros</Button>
             </CardContent>
           </Card>
         )}

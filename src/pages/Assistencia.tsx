@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLoja } from '@/hooks/useLoja';
+import { usePersistedFilter, clearPersistedFilters } from '@/hooks/usePersistedFilter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,7 +13,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatCard } from '@/components/StatCard';
 import { toast } from 'sonner';
-import { Plus, X, Wrench, DollarSign, CalendarDays, CalendarIcon, Calculator } from 'lucide-react';
+import { Plus, X, Wrench, DollarSign, CalendarDays, CalendarIcon, Calculator, FilterX } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -23,6 +24,7 @@ import OrcamentoTab from '@/components/assistencia/OrcamentoTab';
 const tecnicos = ['Assistência Loja', 'Assistência Terceirizada'];
 const garantias = ['3 meses', '6 meses', '1 semana', 'Outro'];
 const statusOptions = ['Em andamento', 'Concluído', 'Entregue'];
+const PREFIX = 'filtro_assistencia_';
 
 export default function Assistencia() {
   const { user } = useAuth();
@@ -36,10 +38,12 @@ export default function Assistencia() {
   });
   const [dataAssist, setDataAssist] = useState<Date | undefined>(undefined);
   const [editId, setEditId] = useState<string | null>(null);
-  const [busca, setBusca] = useState('');
-  const [filtroTecnico, setFiltroTecnico] = useState('todos');
-  const [ordem, setOrdem] = useState<'desc' | 'asc'>('desc');
   const [activeTab, setActiveTab] = useState('assistencia');
+
+  // Persistent filters
+  const [busca, setBusca] = usePersistedFilter(PREFIX + 'busca', '');
+  const [filtroTecnico, setFiltroTecnico] = usePersistedFilter(PREFIX + 'tecnico', 'todos');
+  const [ordem, setOrdem] = usePersistedFilter<'desc' | 'asc'>(PREFIX + 'ordem', 'desc');
 
   const load = async () => {
     const { data } = await supabase.from('assistencias').select('*').order('created_at', { ascending: false });
@@ -157,6 +161,13 @@ export default function Assistencia() {
   const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
   const lucroPreview = calcLucro();
 
+  const hasActiveFilters = busca || filtroTecnico !== 'todos';
+
+  const clearFilters = () => {
+    clearPersistedFilters(PREFIX);
+    setBusca(''); setFiltroTecnico('todos'); setOrdem('desc');
+  };
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Assistência Técnica</h1>
@@ -245,6 +256,11 @@ export default function Assistencia() {
                 <SelectItem value="asc">Mais antigas</SelectItem>
               </SelectContent>
             </Select>
+            {hasActiveFilters && (
+              <Button variant="destructive" size="sm" onClick={clearFilters}>
+                <FilterX className="mr-2 h-4 w-4" />Limpar
+              </Button>
+            )}
           </div>
 
           {/* Cards */}
