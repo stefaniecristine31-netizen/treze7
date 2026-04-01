@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { usePersistedFilter, clearPersistedFilters } from '@/hooks/usePersistedFilter';
 import { StatCard } from '@/components/StatCard';
-import { ShoppingCart, Receipt, TrendingUp, Wrench, DollarSign, Users, Package, ArrowUpDown, CalendarIcon } from 'lucide-react';
+import { ShoppingCart, Receipt, TrendingUp, Wrench, DollarSign, Package, ArrowUpDown, CalendarIcon, FilterX, Hash } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -14,15 +15,21 @@ import { cn } from '@/lib/utils';
 
 const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const COLORS = ['hsl(221, 83%, 53%)', 'hsl(0, 84%, 60%)', 'hsl(142, 71%, 45%)', 'hsl(38, 92%, 50%)', 'hsl(262, 83%, 58%)', 'hsl(190, 80%, 45%)'];
+const PREFIX = 'filtro_dashboard_';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const [vendas, setVendas] = useState<any[]>([]);
   const [despesas, setDespesas] = useState<any[]>([]);
   const [assistencias, setAssistencias] = useState<any[]>([]);
-  const [filtro, setFiltro] = useState('todos');
-  const [dataInicio, setDataInicio] = useState<Date | undefined>(undefined);
-  const [dataFim, setDataFim] = useState<Date | undefined>(undefined);
+
+  // Persistent filters
+  const [filtro, setFiltro] = usePersistedFilter(PREFIX + 'filtro', 'todos');
+  const [dataInicio, setDataInicio] = usePersistedFilter<string | undefined>(PREFIX + 'dataInicio', undefined);
+  const [dataFim, setDataFim] = usePersistedFilter<string | undefined>(PREFIX + 'dataFim', undefined);
+
+  const dataInicioDate = dataInicio ? new Date(dataInicio) : undefined;
+  const dataFimDate = dataFim ? new Date(dataFim) : undefined;
 
   useEffect(() => {
     if (!user) return;
@@ -42,12 +49,12 @@ export default function Dashboard() {
   const filtered = useMemo(() => {
     const now = new Date();
     const filterByDate = (items: any[]) => {
-      if (filtro === 'periodo' && dataInicio) {
-        const fim = dataFim ? new Date(dataFim) : new Date();
+      if (filtro === 'periodo' && dataInicioDate) {
+        const fim = dataFimDate ? new Date(dataFimDate) : new Date();
         fim.setHours(23, 59, 59);
         return items.filter(i => {
           const d = new Date(i.created_at);
-          return d >= dataInicio && d <= fim;
+          return d >= dataInicioDate && d <= fim;
         });
       }
       if (filtro === 'todos') return items;
@@ -68,19 +75,14 @@ export default function Dashboard() {
 
   const totalVendas = filtered.vendas.reduce((s, v) => s + Number(v.valor), 0);
   const totalDespesas = filtered.despesas.reduce((s, d) => s + Number(d.valor), 0);
-  const lucroBruto = totalVendas - totalDespesas;
+  const lucro = totalVendas - totalDespesas;
+  const qtdVendas = filtered.vendas.length;
+  const qtdDespesas = filtered.despesas.length;
+  const ticketMedio = qtdVendas > 0 ? totalVendas / qtdVendas : 0;
 
-  // Custos da assistência
   const custoPecas = filtered.assistencias.reduce((s, a) => s + Number(a.valor_peca), 0);
-  const custoTecnicos = filtered.assistencias.reduce((s, a) => s + Number(a.mao_de_obra), 0);
   const lucroAssist = filtered.assistencias.reduce((s, a) => s + Number(a.lucro), 0);
 
-  // Lucro líquido = lucro bruto (já inclui lucro das assistências via vendas vinculadas)
-  const lucroLiquido = lucroBruto;
-
-  const ticketMedio = filtered.vendas.length > 0 ? totalVendas / filtered.vendas.length : 0;
-
-  // Crescimento mensal
   const crescimento = useMemo(() => {
     const mesAtual = new Date().getMonth();
     const mesAnterior = mesAtual === 0 ? 11 : mesAtual - 1;
@@ -90,7 +92,6 @@ export default function Dashboard() {
     return ((vendasMesAtual - vendasMesAnterior) / vendasMesAnterior * 100).toFixed(1);
   }, [vendas]);
 
-  // Chart data
   const chartData = useMemo(() => {
     return meses.map((m, i) => {
       const mv = vendas.filter(v => new Date(v.created_at).getMonth() === i).reduce((s, v) => s + Number(v.valor), 0);
@@ -99,7 +100,6 @@ export default function Dashboard() {
     });
   }, [vendas, despesas]);
 
-  // Despesas por categoria
   const despesasPorCategoria = useMemo(() => {
     const map: Record<string, number> = {};
     filtered.despesas.forEach(d => {
@@ -110,6 +110,15 @@ export default function Dashboard() {
   }, [filtered.despesas]);
 
   const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+  const hasActiveFilters = filtro !== 'todos';
+
+  const clearFilters = () => {
+    clearPersistedFilters(PREFIX);
+    setFiltro('todos');
+    setDataInicio(undefined);
+    setDataFim(undefined);
+  };
 
   return (
     <div className="space-y-6">
@@ -132,44 +141,49 @@ export default function Dashboard() {
             <div className="flex gap-2">
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className={cn(!dataInicio && "text-muted-foreground")}>
+                  <Button variant="outline" size="sm" className={cn(!dataInicioDate && "text-muted-foreground")}>
                     <CalendarIcon className="mr-1 h-3 w-3" />
-                    {dataInicio ? format(dataInicio, "dd/MM/yy") : "Início"}
+                    {dataInicioDate ? format(dataInicioDate, "dd/MM/yy") : "Início"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={dataInicio} onSelect={setDataInicio} initialFocus className="p-3 pointer-events-auto" />
+                  <Calendar mode="single" selected={dataInicioDate} onSelect={d => setDataInicio(d?.toISOString())} initialFocus className="p-3 pointer-events-auto" />
                 </PopoverContent>
               </Popover>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className={cn(!dataFim && "text-muted-foreground")}>
+                  <Button variant="outline" size="sm" className={cn(!dataFimDate && "text-muted-foreground")}>
                     <CalendarIcon className="mr-1 h-3 w-3" />
-                    {dataFim ? format(dataFim, "dd/MM/yy") : "Fim"}
+                    {dataFimDate ? format(dataFimDate, "dd/MM/yy") : "Fim"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={dataFim} onSelect={setDataFim} initialFocus className="p-3 pointer-events-auto" />
+                  <Calendar mode="single" selected={dataFimDate} onSelect={d => setDataFim(d?.toISOString())} initialFocus className="p-3 pointer-events-auto" />
                 </PopoverContent>
               </Popover>
             </div>
+          )}
+          {hasActiveFilters && (
+            <Button variant="destructive" size="sm" onClick={clearFilters}>
+              <FilterX className="mr-1 h-3 w-3" />Limpar
+            </Button>
           )}
         </div>
       </div>
 
       {/* Row 1: Main financial cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total Vendas" value={fmt(totalVendas)} icon={ShoppingCart} color="primary" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <StatCard title="Total Bruto Vendas" value={fmt(totalVendas)} icon={ShoppingCart} color="primary" />
         <StatCard title="Total Despesas" value={fmt(totalDespesas)} icon={Receipt} color="destructive" />
-        <StatCard title="Lucro Bruto" value={fmt(lucroBruto)} icon={TrendingUp} color={lucroBruto >= 0 ? 'success' : 'destructive'} />
-        <StatCard title="Lucro Líquido" value={fmt(lucroLiquido)} icon={DollarSign} color={lucroLiquido >= 0 ? 'success' : 'destructive'} />
+        <StatCard title="Lucro" value={fmt(lucro)} icon={TrendingUp} color={lucro >= 0 ? 'success' : 'destructive'} />
+        <StatCard title="Qtd. Vendas" value={String(qtdVendas)} icon={Hash} color="primary" />
+        <StatCard title="Qtd. Despesas" value={String(qtdDespesas)} icon={Hash} color="warning" />
       </div>
 
       {/* Row 2: Detail cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Custo Peças" value={fmt(custoPecas)} icon={Package} color="warning" />
-        <StatCard title="Custo Técnicos" value={fmt(custoTecnicos)} icon={Users} color="warning" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         <StatCard title="Ticket Médio" value={fmt(ticketMedio)} icon={ArrowUpDown} color="primary" />
+        <StatCard title="Custo Peças" value={fmt(custoPecas)} icon={Package} color="warning" />
         <StatCard
           title="Lucro Assistências"
           value={fmt(lucroAssist)}
@@ -178,6 +192,7 @@ export default function Dashboard() {
           trend={crescimento ? `${Number(crescimento) >= 0 ? '+' : ''}${crescimento}% vs mês anterior` : undefined}
           trendUp={crescimento ? Number(crescimento) >= 0 : undefined}
         />
+        <StatCard title="Assistências" value={String(filtered.assistencias.length)} icon={Wrench} color="primary" />
       </div>
 
       {/* Charts */}
