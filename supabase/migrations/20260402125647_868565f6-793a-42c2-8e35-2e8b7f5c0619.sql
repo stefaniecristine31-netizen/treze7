@@ -1,0 +1,6 @@
+ALTER TABLE public.vendas 
+ADD COLUMN IF NOT EXISTS tipo_venda text NOT NULL DEFAULT 'produto',
+ADD COLUMN IF NOT EXISTS marca text,
+ADD COLUMN IF NOT EXISTS modelo text,
+ADD COLUMN IF NOT EXISTS valor_compra numeric NOT NULL DEFAULT 0,
+ADD COLUMN IF NOT EXISTS lucro_venda numeric NOT NULL DEFAULT 0;
