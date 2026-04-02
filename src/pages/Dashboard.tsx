@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { usePersistedFilter, clearPersistedFilters } from '@/hooks/usePersistedFilter';
 import { StatCard } from '@/components/StatCard';
-import { ShoppingCart, Receipt, TrendingUp, Wrench, DollarSign, Package, ArrowUpDown, CalendarIcon, FilterX, Hash } from 'lucide-react';
+import { ShoppingCart, Receipt, TrendingUp, Wrench, DollarSign, Package, ArrowUpDown, CalendarIcon, FilterX, Hash, Smartphone } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -23,7 +23,6 @@ export default function Dashboard() {
   const [despesas, setDespesas] = useState<any[]>([]);
   const [assistencias, setAssistencias] = useState<any[]>([]);
 
-  // Persistent filters
   const [filtro, setFiltro] = usePersistedFilter(PREFIX + 'filtro', 'todos');
   const [dataInicio, setDataInicio] = usePersistedFilter<string | undefined>(PREFIX + 'dataInicio', undefined);
   const [dataFim, setDataFim] = usePersistedFilter<string | undefined>(PREFIX + 'dataFim', undefined);
@@ -73,38 +72,48 @@ export default function Dashboard() {
     };
   }, [vendas, despesas, assistencias, filtro, dataInicio, dataFim]);
 
-  const totalVendas = filtered.vendas.reduce((s, v) => s + Number(v.valor), 0);
+  // === FINANCIAL CALCULATIONS ===
+  // Bruto = todas as vendas (valor) + valor_servico das assistências
+  const totalBrutoVendas = filtered.vendas.reduce((s, v) => s + Number(v.valor), 0);
+  const totalBrutoAssistencias = filtered.assistencias.reduce((s, a) => s + Number(a.valor_servico), 0);
+  const totalBruto = totalBrutoVendas + totalBrutoAssistencias;
+
+  // Líquido = lucro das vendas + lucro das assistências
+  const lucroVendas = filtered.vendas.reduce((s, v) => s + Number(v.lucro_venda || v.valor), 0);
+  const lucroAssistencias = filtered.assistencias.reduce((s, a) => s + Number(a.lucro), 0);
+  const totalLiquido = lucroVendas + lucroAssistencias;
+
   const totalDespesas = filtered.despesas.reduce((s, d) => s + Number(d.valor), 0);
-  const lucro = totalVendas - totalDespesas;
+  const lucroFinal = totalLiquido - totalDespesas;
+
   const qtdVendas = filtered.vendas.length;
   const qtdDespesas = filtered.despesas.length;
-  const ticketMedio = qtdVendas > 0 ? totalVendas / qtdVendas : 0;
-
-  const custoPecas = filtered.assistencias.reduce((s, a) => s + Number(a.valor_peca), 0);
-  const lucroAssist = filtered.assistencias.reduce((s, a) => s + Number(a.lucro), 0);
+  const qtdAssistencias = filtered.assistencias.length;
+  const ticketMedio = qtdVendas > 0 ? totalBrutoVendas / qtdVendas : 0;
 
   const crescimento = useMemo(() => {
     const mesAtual = new Date().getMonth();
     const mesAnterior = mesAtual === 0 ? 11 : mesAtual - 1;
-    const vendasMesAtual = vendas.filter(v => new Date(v.created_at).getMonth() === mesAtual).reduce((s, v) => s + Number(v.valor), 0);
-    const vendasMesAnterior = vendas.filter(v => new Date(v.created_at).getMonth() === mesAnterior).reduce((s, v) => s + Number(v.valor), 0);
-    if (vendasMesAnterior === 0) return null;
-    return ((vendasMesAtual - vendasMesAnterior) / vendasMesAnterior * 100).toFixed(1);
+    const vAtual = vendas.filter(v => new Date(v.created_at).getMonth() === mesAtual).reduce((s, v) => s + Number(v.valor), 0);
+    const vAnterior = vendas.filter(v => new Date(v.created_at).getMonth() === mesAnterior).reduce((s, v) => s + Number(v.valor), 0);
+    if (vAnterior === 0) return null;
+    return ((vAtual - vAnterior) / vAnterior * 100).toFixed(1);
   }, [vendas]);
 
   const chartData = useMemo(() => {
     return meses.map((m, i) => {
       const mv = vendas.filter(v => new Date(v.created_at).getMonth() === i).reduce((s, v) => s + Number(v.valor), 0);
+      const ma = assistencias.filter(a => new Date(a.created_at).getMonth() === i).reduce((s, a) => s + Number(a.valor_servico), 0);
       const md = despesas.filter(d => new Date(d.created_at).getMonth() === i).reduce((s, d) => s + Number(d.valor), 0);
-      return { mes: m.slice(0, 3), vendas: mv, despesas: md, lucro: mv - md };
+      const bruto = mv + ma;
+      return { mes: m.slice(0, 3), vendas: mv, assistencias: ma, despesas: md, lucro: bruto - md };
     });
-  }, [vendas, despesas]);
+  }, [vendas, despesas, assistencias]);
 
   const despesasPorCategoria = useMemo(() => {
     const map: Record<string, number> = {};
     filtered.despesas.forEach(d => {
-      const key = d.tipo;
-      map[key] = (map[key] || 0) + Number(d.valor);
+      map[d.tipo] = (map[d.tipo] || 0) + Number(d.valor);
     });
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [filtered.despesas]);
@@ -112,12 +121,9 @@ export default function Dashboard() {
   const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
   const hasActiveFilters = filtro !== 'todos';
-
   const clearFilters = () => {
     clearPersistedFilters(PREFIX);
-    setFiltro('todos');
-    setDataInicio(undefined);
-    setDataFim(undefined);
+    setFiltro('todos'); setDataInicio(undefined); setDataFim(undefined);
   };
 
   return (
@@ -172,27 +178,24 @@ export default function Dashboard() {
       </div>
 
       {/* Row 1: Main financial cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <StatCard title="Total Bruto Vendas" value={fmt(totalVendas)} icon={ShoppingCart} color="primary" />
-        <StatCard title="Total Despesas" value={fmt(totalDespesas)} icon={Receipt} color="destructive" />
-        <StatCard title="Lucro" value={fmt(lucro)} icon={TrendingUp} color={lucro >= 0 ? 'success' : 'destructive'} />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <StatCard title="Total Bruto" value={fmt(totalBruto)} icon={ShoppingCart} color="primary"
+          trend={crescimento ? `${Number(crescimento) >= 0 ? '+' : ''}${crescimento}%` : undefined}
+          trendUp={crescimento ? Number(crescimento) >= 0 : undefined}
+        />
+        <StatCard title="Venda Líquida" value={fmt(totalLiquido)} icon={DollarSign} color="success" />
+        <StatCard title="Despesas" value={fmt(totalDespesas)} icon={Receipt} color="destructive" />
+        <StatCard title="Lucro" value={fmt(lucroFinal)} icon={TrendingUp} color={lucroFinal >= 0 ? 'success' : 'destructive'} />
         <StatCard title="Qtd. Vendas" value={String(qtdVendas)} icon={Hash} color="primary" />
-        <StatCard title="Qtd. Despesas" value={String(qtdDespesas)} icon={Hash} color="warning" />
+        <StatCard title="Ticket Médio" value={fmt(ticketMedio)} icon={ArrowUpDown} color="warning" />
       </div>
 
       {/* Row 2: Detail cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-        <StatCard title="Ticket Médio" value={fmt(ticketMedio)} icon={ArrowUpDown} color="primary" />
-        <StatCard title="Custo Peças" value={fmt(custoPecas)} icon={Package} color="warning" />
-        <StatCard
-          title="Lucro Assistências"
-          value={fmt(lucroAssist)}
-          icon={Wrench}
-          color={lucroAssist >= 0 ? 'success' : 'destructive'}
-          trend={crescimento ? `${Number(crescimento) >= 0 ? '+' : ''}${crescimento}% vs mês anterior` : undefined}
-          trendUp={crescimento ? Number(crescimento) >= 0 : undefined}
-        />
-        <StatCard title="Assistências" value={String(filtered.assistencias.length)} icon={Wrench} color="primary" />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatCard title="Lucro Assistências" value={fmt(lucroAssistencias)} icon={Wrench} color="success" />
+        <StatCard title="Lucro Vendas" value={fmt(lucroVendas)} icon={Smartphone} color="success" />
+        <StatCard title="Assistências" value={String(qtdAssistencias)} icon={Wrench} color="primary" />
+        <StatCard title="Qtd. Despesas" value={String(qtdDespesas)} icon={Hash} color="warning" />
       </div>
 
       {/* Charts */}
@@ -207,6 +210,7 @@ export default function Dashboard() {
                 <YAxis fontSize={12} />
                 <Tooltip formatter={(v: number) => fmt(v)} />
                 <Bar dataKey="vendas" fill="hsl(221, 83%, 53%)" radius={[4, 4, 0, 0]} name="Vendas" />
+                <Bar dataKey="assistencias" fill="hsl(142, 71%, 45%)" radius={[4, 4, 0, 0]} name="Assistências" />
                 <Bar dataKey="despesas" fill="hsl(0, 84%, 60%)" radius={[4, 4, 0, 0]} name="Despesas" />
               </BarChart>
             </ResponsiveContainer>
@@ -232,18 +236,16 @@ export default function Dashboard() {
           <CardHeader><CardTitle className="text-base">Despesas por Categoria</CardTitle></CardHeader>
           <CardContent>
             {despesasPorCategoria.length > 0 ? (
-              <div className="flex flex-col lg:flex-row items-center gap-6">
-                <ResponsiveContainer width="100%" height={280}>
-                  <PieChart>
-                    <Pie data={despesasPorCategoria} cx="50%" cy="50%" outerRadius={100} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                      {despesasPorCategoria.map((_, idx) => (
-                        <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(v: number) => fmt(v)} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie data={despesasPorCategoria} cx="50%" cy="50%" outerRadius={100} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                    {despesasPorCategoria.map((_, idx) => (
+                      <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v: number) => fmt(v)} />
+                </PieChart>
+              </ResponsiveContainer>
             ) : (
               <p className="text-center text-muted-foreground py-8">Nenhuma despesa no período</p>
             )}
