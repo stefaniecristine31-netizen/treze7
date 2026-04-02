@@ -484,10 +484,15 @@ export type Database = {
           garantia_dias: number
           id: string
           loja_id: string | null
+          lucro_venda: number
+          marca: string | null
+          modelo: string | null
           produto: string
+          tipo_venda: string
           updated_at: string
           user_id: string
           valor: number
+          valor_compra: number
         }
         Insert: {
           assistencia_id?: string | null
@@ -495,10 +500,15 @@ export type Database = {
           garantia_dias?: number
           id?: string
           loja_id?: string | null
+          lucro_venda?: number
+          marca?: string | null
+          modelo?: string | null
           produto: string
+          tipo_venda?: string
           updated_at?: string
           user_id: string
           valor?: number
+          valor_compra?: number
         }
         Update: {
           assistencia_id?: string | null
@@ -506,10 +516,15 @@ export type Database = {
           garantia_dias?: number
           id?: string
           loja_id?: string | null
+          lucro_venda?: number
+          marca?: string | null
+          modelo?: string | null
           produto?: string
+          tipo_venda?: string
           updated_at?: string
           user_id?: string
           valor?: number
+          valor_compra?: number
         }
         Relationships: [
           {

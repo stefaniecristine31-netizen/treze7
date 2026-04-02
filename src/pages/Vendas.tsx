@@ -12,7 +12,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit2, X, CalendarIcon, Filter, ShoppingCart, DollarSign, TrendingUp, Eye, Download, Printer, FilterX } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, CalendarIcon, Filter, ShoppingCart, DollarSign, TrendingUp, Eye, Download, Printer, FilterX, Smartphone } from 'lucide-react';
 import { StatCard } from '@/components/StatCard';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -28,8 +28,14 @@ export default function Vendas() {
   const { lojaId } = useLoja();
   const [items, setItems] = useState<any[]>([]);
   const [config, setConfig] = useState<any>(null);
+
+  // Form fields
+  const [tipoVenda, setTipoVenda] = useState('produto');
   const [produto, setProduto] = useState('');
   const [valor, setValor] = useState('');
+  const [marca, setMarca] = useState('');
+  const [modelo, setModelo] = useState('');
+  const [valorCompra, setValorCompra] = useState('');
   const [dataVenda, setDataVenda] = useState<Date | undefined>(undefined);
   const [temGarantia, setTemGarantia] = useState(false);
   const [garantiaDias, setGarantiaDias] = useState('');
@@ -39,6 +45,7 @@ export default function Vendas() {
   const [busca, setBusca] = usePersistedFilter(PREFIX + 'busca', '');
   const [ordem, setOrdem] = usePersistedFilter(PREFIX + 'ordem', 'recente');
   const [filtroMes, setFiltroMes] = usePersistedFilter(PREFIX + 'mes', 'todos');
+  const [filtroTipo, setFiltroTipo] = usePersistedFilter(PREFIX + 'tipo', 'todos');
   const [dataInicio, setDataInicio] = usePersistedFilter<string | undefined>(PREFIX + 'dataInicio', undefined);
   const [dataFim, setDataFim] = usePersistedFilter<string | undefined>(PREFIX + 'dataFim', undefined);
   const [valorMin, setValorMin] = usePersistedFilter(PREFIX + 'valorMin', '');
@@ -47,6 +54,9 @@ export default function Vendas() {
 
   const dataInicioDate = dataInicio ? new Date(dataInicio) : undefined;
   const dataFimDate = dataFim ? new Date(dataFim) : undefined;
+
+  const isCelular = tipoVenda === 'celular';
+  const lucroAutoCelular = isCelular ? (parseFloat(valor) || 0) - (parseFloat(valorCompra) || 0) : 0;
 
   const load = async () => {
     const { data } = await supabase.from('vendas').select('*').order('created_at', { ascending: false });
@@ -60,13 +70,27 @@ export default function Vendas() {
   }, [user]);
 
   const save = async () => {
-    if (!produto || !valor) { toast.error('Preencha todos os campos'); return; }
+    if (isCelular) {
+      if (!marca || !modelo || !valor) { toast.error('Preencha marca, modelo e valor de venda'); return; }
+    } else {
+      if (!produto || !valor) { toast.error('Preencha todos os campos'); return; }
+    }
     if (!lojaId) { toast.error('Erro: loja não identificada'); return; }
+
     const obj: any = {
-      produto, valor: parseFloat(valor), user_id: user!.id, loja_id: lojaId,
+      valor: parseFloat(valor),
+      user_id: user!.id,
+      loja_id: lojaId,
       garantia_dias: temGarantia ? (parseInt(garantiaDias) || 0) : 0,
+      tipo_venda: tipoVenda,
+      marca: isCelular ? marca : null,
+      modelo: isCelular ? modelo : null,
+      valor_compra: isCelular ? (parseFloat(valorCompra) || 0) : 0,
+      lucro_venda: isCelular ? lucroAutoCelular : (parseFloat(valor) || 0),
+      produto: isCelular ? `${marca} ${modelo}` : produto,
     };
     if (dataVenda) obj.created_at = dataVenda.toISOString();
+
     if (editId) {
       await supabase.from('vendas').update(obj).eq('id', editId);
       toast.success('Venda atualizada');
@@ -78,7 +102,8 @@ export default function Vendas() {
   };
 
   const resetForm = () => {
-    setProduto(''); setValor(''); setDataVenda(undefined); setTemGarantia(false); setGarantiaDias(''); setEditId(null);
+    setTipoVenda('produto'); setProduto(''); setValor(''); setMarca(''); setModelo('');
+    setValorCompra(''); setDataVenda(undefined); setTemGarantia(false); setGarantiaDias(''); setEditId(null);
   };
 
   const remove = async (id: string) => {
@@ -87,8 +112,12 @@ export default function Vendas() {
   };
 
   const edit = (item: any) => {
+    setTipoVenda(item.tipo_venda || 'produto');
     setProduto(item.produto);
     setValor(String(item.valor));
+    setMarca(item.marca || '');
+    setModelo(item.modelo || '');
+    setValorCompra(String(item.valor_compra || ''));
     setDataVenda(new Date(item.created_at));
     setTemGarantia((item.garantia_dias || 0) > 0);
     setGarantiaDias(String(item.garantia_dias || ''));
@@ -103,6 +132,7 @@ export default function Vendas() {
   const filtered = useMemo(() => {
     let result = [...items];
     if (busca) result = result.filter(i => i.produto.toLowerCase().includes(busca.toLowerCase()));
+    if (filtroTipo !== 'todos') result = result.filter(i => (i.tipo_venda || 'produto') === filtroTipo);
     if (filtroMes !== 'todos') {
       const monthIdx = meses.indexOf(filtroMes);
       if (monthIdx >= 0) result = result.filter(i => new Date(i.created_at).getMonth() === monthIdx);
@@ -121,17 +151,18 @@ export default function Vendas() {
       default: result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
     return result;
-  }, [items, busca, filtroMes, dataInicio, dataFim, valorMin, valorMax, ordem]);
+  }, [items, busca, filtroMes, filtroTipo, dataInicio, dataFim, valorMin, valorMax, ordem]);
 
   const totalVendas = filtered.reduce((s, v) => s + Number(v.valor), 0);
+  const totalLucro = filtered.reduce((s, v) => s + Number(v.lucro_venda || v.valor), 0);
   const ticketMedio = filtered.length > 0 ? totalVendas / filtered.length : 0;
   const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
-  const hasActiveFilters = busca || filtroMes !== 'todos' || dataInicio || dataFim || valorMin || valorMax;
+  const hasActiveFilters = busca || filtroMes !== 'todos' || filtroTipo !== 'todos' || dataInicio || dataFim || valorMin || valorMax;
 
   const clearFilters = () => {
     clearPersistedFilters(PREFIX);
-    setBusca(''); setFiltroMes('todos'); setDataInicio(undefined); setDataFim(undefined);
+    setBusca(''); setFiltroMes('todos'); setFiltroTipo('todos'); setDataInicio(undefined); setDataFim(undefined);
     setValorMin(''); setValorMax('');
   };
 
@@ -139,17 +170,48 @@ export default function Vendas() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Vendas</h1>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
         <StatCard title="Total Vendas" value={fmt(totalVendas)} icon={ShoppingCart} color="primary" />
+        <StatCard title="Lucro Vendas" value={fmt(totalLucro)} icon={TrendingUp} color="success" />
         <StatCard title="Quantidade" value={String(filtered.length)} icon={DollarSign} color="warning" />
-        <StatCard title="Ticket Médio" value={fmt(ticketMedio)} icon={TrendingUp} color="success" />
+        <StatCard title="Ticket Médio" value={fmt(ticketMedio)} icon={Smartphone} color="primary" />
       </div>
 
       <Card className="shadow-card">
         <CardHeader><CardTitle className="text-base">{editId ? 'Editar Venda' : 'Nova Venda'}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <Input placeholder="Produto" value={produto} onChange={e => setProduto(e.target.value)} />
-          <Input placeholder="Valor" type="number" step="0.01" value={valor} onChange={e => setValor(e.target.value)} />
+          <Select value={tipoVenda} onValueChange={setTipoVenda}>
+            <SelectTrigger><SelectValue placeholder="Tipo de venda" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="produto">Produto comum</SelectItem>
+              <SelectItem value="celular">📱 Venda de celular</SelectItem>
+              <SelectItem value="assistencia">🔧 Assistência</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {isCelular ? (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <Input placeholder="Marca (ex: Apple)" value={marca} onChange={e => setMarca(e.target.value)} />
+                <Input placeholder="Modelo (ex: iPhone 11)" value={modelo} onChange={e => setModelo(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Input placeholder="Valor de venda" type="number" step="0.01" value={valor} onChange={e => setValor(e.target.value)} />
+                <Input placeholder="Valor de compra" type="number" step="0.01" value={valorCompra} onChange={e => setValorCompra(e.target.value)} />
+              </div>
+              {valor && valorCompra && (
+                <div className={cn("p-3 rounded-lg text-sm font-medium", lucroAutoCelular >= 0 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive")}>
+                  Lucro: {fmt(lucroAutoCelular)}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <Input placeholder="Produto" value={produto} onChange={e => setProduto(e.target.value)} />
+              <Input placeholder="Valor" type="number" step="0.01" value={valor} onChange={e => setValor(e.target.value)} />
+            </>
+          )}
+
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dataVenda && "text-muted-foreground")}>
@@ -208,6 +270,15 @@ export default function Vendas() {
           <Card className="shadow-card">
             <CardContent className="p-4 space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+                  <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os tipos</SelectItem>
+                    <SelectItem value="produto">Produto</SelectItem>
+                    <SelectItem value="celular">Celular</SelectItem>
+                    <SelectItem value="assistencia">Assistência</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Select value={filtroMes} onValueChange={setFiltroMes}>
                   <SelectTrigger><SelectValue placeholder="Mês" /></SelectTrigger>
                   <SelectContent>
@@ -237,10 +308,10 @@ export default function Vendas() {
                     <Calendar mode="single" selected={dataFimDate} onSelect={d => setDataFim(d?.toISOString())} initialFocus className="p-3 pointer-events-auto" />
                   </PopoverContent>
                 </Popover>
-                <div className="flex gap-2">
-                  <Input placeholder="Valor mín" type="number" value={valorMin} onChange={e => setValorMin(e.target.value)} />
-                  <Input placeholder="Valor máx" type="number" value={valorMax} onChange={e => setValorMax(e.target.value)} />
-                </div>
+              </div>
+              <div className="flex gap-2">
+                <Input placeholder="Valor mín" type="number" value={valorMin} onChange={e => setValorMin(e.target.value)} />
+                <Input placeholder="Valor máx" type="number" value={valorMax} onChange={e => setValorMax(e.target.value)} />
               </div>
             </CardContent>
           </Card>
@@ -248,40 +319,46 @@ export default function Vendas() {
       </div>
 
       <div className="space-y-2">
-        {filtered.map(item => (
-          <Card key={item.id} className="shadow-card">
-            <CardContent className="p-4 flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="font-medium">{item.produto}</p>
-                  {(item.garantia_dias || 0) > 0 && (
-                    <Badge variant="outline" className="text-xs">Garantia {item.garantia_dias}d</Badge>
-                  )}
+        {filtered.map(item => {
+          const tipo = item.tipo_venda || 'produto';
+          const lucro = Number(item.lucro_venda || item.valor);
+          return (
+            <Card key={item.id} className="shadow-card">
+              <CardContent className="p-3 flex items-center justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium text-sm">{item.produto}</p>
+                    {tipo === 'celular' && <Badge className="bg-primary/10 text-primary text-[10px]">📱 Celular</Badge>}
+                    {tipo === 'assistencia' && <Badge className="bg-warning/10 text-warning text-[10px]">🔧 Assistência</Badge>}
+                    {(item.garantia_dias || 0) > 0 && <Badge variant="outline" className="text-[10px]">Garantia {item.garantia_dias}d</Badge>}
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                    <span>{fmt(item.valor)}</span>
+                    {tipo === 'celular' && <span className={lucro >= 0 ? 'text-success' : 'text-destructive'}>Lucro: {fmt(lucro)}</span>}
+                    <span>{new Date(item.created_at).toLocaleDateString('pt-BR')}</span>
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {fmt(item.valor)} • {new Date(item.created_at).toLocaleString('pt-BR')}
-                </p>
-              </div>
-              <div className="flex gap-1">
-                <Button size="icon" variant="ghost" onClick={() => handlePdf(item, 'view')} title="Visualizar PDF">
-                  <Eye className="h-4 w-4 text-primary" />
-                </Button>
-                <Button size="icon" variant="ghost" onClick={() => handlePdf(item, 'download')} title="Baixar PDF">
-                  <Download className="h-4 w-4 text-primary" />
-                </Button>
-                <Button size="icon" variant="ghost" onClick={() => handlePdf(item, 'print')} title="Imprimir">
-                  <Printer className="h-4 w-4 text-primary" />
-                </Button>
-                <Button size="icon" variant="ghost" onClick={() => edit(item)}>
-                  <Edit2 className="h-4 w-4" />
-                </Button>
-                <Button size="icon" variant="ghost" className="text-destructive" onClick={() => remove(item.id)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                <div className="flex gap-0.5 shrink-0">
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handlePdf(item, 'view')} title="Visualizar PDF">
+                    <Eye className="h-3.5 w-3.5 text-primary" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handlePdf(item, 'download')} title="Baixar PDF">
+                    <Download className="h-3.5 w-3.5 text-primary" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handlePdf(item, 'print')} title="Imprimir">
+                    <Printer className="h-3.5 w-3.5 text-primary" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => edit(item)}>
+                    <Edit2 className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => remove(item.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
         {filtered.length === 0 && <p className="text-center text-muted-foreground py-8">Nenhuma venda encontrada</p>}
       </div>
     </div>
