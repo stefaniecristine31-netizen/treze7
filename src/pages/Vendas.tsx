@@ -12,7 +12,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit2, X, CalendarIcon, Filter, ShoppingCart, DollarSign, TrendingUp, Eye, Download, Printer, FilterX, Smartphone } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, CalendarIcon, Filter, ShoppingCart, DollarSign, Eye, Download, Printer, FilterX, Smartphone } from 'lucide-react';
 import { StatCard } from '@/components/StatCard';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
