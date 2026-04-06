@@ -95,7 +95,7 @@ export default function Dashboard() {
   // === CALCULATIONS (corrected per user rules) ===
   // Total Bruto = vendas (produto + celular) + assistências (valor_servico)
   // Exclui vendas tipo 'assistencia' pois são apenas o lucro já lançado
-  const vendasProdutoCelular = filtered.vendas.filter(v => (v.tipo_venda || 'produto') !== 'assistencia');
+  const vendasProdutoCelular = filtered.vendas.filter(v => !(v.produto || '').startsWith('Assistência -'));
   const totalVendasProdCel = vendasProdutoCelular.reduce((s, v) => s + Number(v.valor), 0);
   const totalBrutoAssist = filtered.assistencias.reduce((s, a) => s + Number(a.valor_servico), 0);
   const totalBruto = totalVendasProdCel + totalBrutoAssist;
@@ -151,8 +151,8 @@ export default function Dashboard() {
       return ((atual - anterior) / anterior * 100).toFixed(1);
     };
 
-    const brutoAtual = vAtual.filter(v => (v.tipo_venda || 'produto') !== 'assistencia').reduce((s, v) => s + Number(v.valor), 0) + aAtual.reduce((s, a) => s + Number(a.valor_servico), 0);
-    const brutoAnterior = vAnterior.filter(v => (v.tipo_venda || 'produto') !== 'assistencia').reduce((s, v) => s + Number(v.valor), 0) + aAnterior.reduce((s, a) => s + Number(a.valor_servico), 0);
+    const brutoAtual = vAtual.filter(v => !(v.produto || '').startsWith('Assistência -')).reduce((s, v) => s + Number(v.valor), 0) + aAtual.reduce((s, a) => s + Number(a.valor_servico), 0);
+    const brutoAnterior = vAnterior.filter(v => !(v.produto || '').startsWith('Assistência -')).reduce((s, v) => s + Number(v.valor), 0) + aAnterior.reduce((s, a) => s + Number(a.valor_servico), 0);
 
     const liqAtual = vAtual.reduce((s, v) => s + Number(v.valor), 0);
     const liqAnterior = vAnterior.reduce((s, v) => s + Number(v.valor), 0);
