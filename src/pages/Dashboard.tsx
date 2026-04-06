@@ -151,8 +151,8 @@ export default function Dashboard() {
       return ((atual - anterior) / anterior * 100).toFixed(1);
     };
 
-    const brutoAtual = vAtual.reduce((s, v) => s + Number(v.valor), 0) + aAtual.reduce((s, a) => s + Number(a.valor_servico), 0);
-    const brutoAnterior = vAnterior.reduce((s, v) => s + Number(v.valor), 0) + aAnterior.reduce((s, a) => s + Number(a.valor_servico), 0);
+    const brutoAtual = vAtual.filter(v => (v.tipo_venda || 'produto') !== 'assistencia').reduce((s, v) => s + Number(v.valor), 0) + aAtual.reduce((s, a) => s + Number(a.valor_servico), 0);
+    const brutoAnterior = vAnterior.filter(v => (v.tipo_venda || 'produto') !== 'assistencia').reduce((s, v) => s + Number(v.valor), 0) + aAnterior.reduce((s, a) => s + Number(a.valor_servico), 0);
 
     const liqAtual = vAtual.reduce((s, v) => s + Number(v.valor), 0);
     const liqAnterior = vAnterior.reduce((s, v) => s + Number(v.valor), 0);

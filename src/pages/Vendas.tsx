@@ -170,9 +170,8 @@ export default function Vendas() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Vendas</h1>
 
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <StatCard title="Total Vendas" value={fmt(totalVendas)} icon={ShoppingCart} color="primary" />
-        <StatCard title="Lucro Vendas" value={fmt(totalLucro)} icon={TrendingUp} color="success" />
         <StatCard title="Quantidade" value={String(filtered.length)} icon={DollarSign} color="warning" />
         <StatCard title="Ticket Médio" value={fmt(ticketMedio)} icon={Smartphone} color="primary" />
       </div>
