@@ -3,12 +3,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { usePersistedFilter, clearPersistedFilters } from '@/hooks/usePersistedFilter';
 import { StatCard } from '@/components/StatCard';
-import { ShoppingCart, Receipt, TrendingUp, Wrench, DollarSign, Package, ArrowUpDown, CalendarIcon, FilterX, Hash, Smartphone } from 'lucide-react';
+import {
+  ShoppingCart, Receipt, TrendingUp, Wrench, DollarSign, Package,
+  ArrowUpDown, CalendarIcon, FilterX, Hash, Percent, Wallet
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -17,11 +22,14 @@ const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Ag
 const COLORS = ['hsl(221, 83%, 53%)', 'hsl(0, 84%, 60%)', 'hsl(142, 71%, 45%)', 'hsl(38, 92%, 50%)', 'hsl(262, 83%, 58%)', 'hsl(190, 80%, 45%)'];
 const PREFIX = 'filtro_dashboard_';
 
+const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [vendas, setVendas] = useState<any[]>([]);
   const [despesas, setDespesas] = useState<any[]>([]);
   const [assistencias, setAssistencias] = useState<any[]>([]);
+  const [caixa, setCaixa] = useState<any[]>([]);
 
   const [filtro, setFiltro] = usePersistedFilter(PREFIX + 'filtro', 'todos');
   const [dataInicio, setDataInicio] = usePersistedFilter<string | undefined>(PREFIX + 'dataInicio', undefined);
@@ -33,73 +41,138 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user) return;
     const load = async () => {
-      const [v, d, a] = await Promise.all([
+      const hoje = new Date().toISOString().slice(0, 10);
+      const [v, d, a, c] = await Promise.all([
         supabase.from('vendas').select('*'),
         supabase.from('despesas').select('*'),
         supabase.from('assistencias').select('*'),
+        supabase.from('caixa').select('*').eq('data', hoje).order('created_at', { ascending: true }),
       ]);
       setVendas(v.data || []);
       setDespesas(d.data || []);
       setAssistencias(a.data || []);
+      setCaixa(c.data || []);
     };
     load();
   }, [user]);
 
-  const filtered = useMemo(() => {
+  // === FILTER LOGIC ===
+  const filterByDate = (items: any[]) => {
     const now = new Date();
-    const filterByDate = (items: any[]) => {
-      if (filtro === 'periodo' && dataInicioDate) {
-        const fim = dataFimDate ? new Date(dataFimDate) : new Date();
-        fim.setHours(23, 59, 59);
-        return items.filter(i => {
-          const d = new Date(i.created_at);
-          return d >= dataInicioDate && d <= fim;
-        });
-      }
-      if (filtro === 'todos') return items;
-      if (filtro === 'hoje') {
-        const today = now.toISOString().slice(0, 10);
-        return items.filter(i => i.created_at?.slice(0, 10) === today);
-      }
-      const monthIdx = meses.indexOf(filtro);
-      if (monthIdx >= 0) return items.filter(i => new Date(i.created_at).getMonth() === monthIdx);
-      return items;
-    };
-    return {
-      vendas: filterByDate(vendas),
-      despesas: filterByDate(despesas),
-      assistencias: filterByDate(assistencias),
-    };
-  }, [vendas, despesas, assistencias, filtro, dataInicio, dataFim]);
+    if (filtro === 'todos') return items;
+    if (filtro === 'hoje') {
+      const today = now.toISOString().slice(0, 10);
+      return items.filter(i => i.created_at?.slice(0, 10) === today);
+    }
+    if (filtro === 'este_mes') {
+      return items.filter(i => {
+        const d = new Date(i.created_at);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      });
+    }
+    if (filtro === 'este_ano') {
+      return items.filter(i => new Date(i.created_at).getFullYear() === now.getFullYear());
+    }
+    if (filtro === 'periodo' && dataInicioDate) {
+      const fim = dataFimDate ? new Date(dataFimDate) : new Date();
+      fim.setHours(23, 59, 59);
+      return items.filter(i => {
+        const d = new Date(i.created_at);
+        return d >= dataInicioDate && d <= fim;
+      });
+    }
+    const monthIdx = meses.indexOf(filtro);
+    if (monthIdx >= 0) return items.filter(i => new Date(i.created_at).getMonth() === monthIdx);
+    return items;
+  };
 
-  // === FINANCIAL CALCULATIONS ===
-  // Bruto = todas as vendas (valor) + valor_servico das assistências
-  const totalBrutoVendas = filtered.vendas.reduce((s, v) => s + Number(v.valor), 0);
-  const totalBrutoAssistencias = filtered.assistencias.reduce((s, a) => s + Number(a.valor_servico), 0);
-  const totalBruto = totalBrutoVendas + totalBrutoAssistencias;
+  const filtered = useMemo(() => ({
+    vendas: filterByDate(vendas),
+    despesas: filterByDate(despesas),
+    assistencias: filterByDate(assistencias),
+  }), [vendas, despesas, assistencias, filtro, dataInicio, dataFim]);
 
-  // Líquido = lucro das vendas + lucro das assistências
-  const lucroVendas = filtered.vendas.reduce((s, v) => s + Number(v.lucro_venda || v.valor), 0);
-  const lucroAssistencias = filtered.assistencias.reduce((s, a) => s + Number(a.lucro), 0);
-  const totalLiquido = lucroVendas + lucroAssistencias;
+  // === CALCULATIONS (corrected per user rules) ===
+  // Total Bruto = Sum(vendas.valor) + Sum(assistencias.valor_servico)
+  const totalVendas = filtered.vendas.reduce((s, v) => s + Number(v.valor), 0);
+  const totalBrutoAssist = filtered.assistencias.reduce((s, a) => s + Number(a.valor_servico), 0);
+  const totalBruto = totalVendas + totalBrutoAssist;
 
+  // Lucro Líquido = Sum(vendas.valor) — assistência lucro already included in vendas
+  const lucroLiquido = totalVendas;
+
+  // Custo Peças (assistências) = valor_servico - lucro for each
+  const custoPecas = filtered.assistencias.reduce((s, a) => s + (Number(a.valor_servico) - Number(a.lucro)), 0);
+
+  // Despesas
   const totalDespesas = filtered.despesas.reduce((s, d) => s + Number(d.valor), 0);
-  const lucroFinal = totalLiquido - totalDespesas;
 
+  // Margem de Lucro
+  const margemLucro = totalBruto > 0 ? (lucroLiquido / totalBruto) * 100 : 0;
+
+  // Volumes
   const qtdVendas = filtered.vendas.length;
   const qtdDespesas = filtered.despesas.length;
   const qtdAssistencias = filtered.assistencias.length;
-  const ticketMedio = qtdVendas > 0 ? totalBrutoVendas / qtdVendas : 0;
+  const ticketMedio = qtdVendas > 0 ? totalVendas / qtdVendas : 0;
 
-  const crescimento = useMemo(() => {
-    const mesAtual = new Date().getMonth();
+  // Saldo do Caixa (hoje)
+  const saldoCaixa = useMemo(() => {
+    return caixa.reduce((s, i) => {
+      if (i.tipo === 'entrada' || i.tipo === 'abertura') return s + Number(i.valor);
+      if (i.tipo === 'saida') return s - Number(i.valor);
+      return s;
+    }, 0);
+  }, [caixa]);
+
+  // === TRENDS (vs previous month) ===
+  const trends = useMemo(() => {
+    const now = new Date();
+    const mesAtual = now.getMonth();
+    const anoAtual = now.getFullYear();
     const mesAnterior = mesAtual === 0 ? 11 : mesAtual - 1;
-    const vAtual = vendas.filter(v => new Date(v.created_at).getMonth() === mesAtual).reduce((s, v) => s + Number(v.valor), 0);
-    const vAnterior = vendas.filter(v => new Date(v.created_at).getMonth() === mesAnterior).reduce((s, v) => s + Number(v.valor), 0);
-    if (vAnterior === 0) return null;
-    return ((vAtual - vAnterior) / vAnterior * 100).toFixed(1);
-  }, [vendas]);
+    const anoAnterior = mesAtual === 0 ? anoAtual - 1 : anoAtual;
 
+    const inMonth = (items: any[], m: number, y: number) =>
+      items.filter(i => { const d = new Date(i.created_at); return d.getMonth() === m && d.getFullYear() === y; });
+
+    const vAtual = inMonth(vendas, mesAtual, anoAtual);
+    const vAnterior = inMonth(vendas, mesAnterior, anoAnterior);
+    const aAtual = inMonth(assistencias, mesAtual, anoAtual);
+    const aAnterior = inMonth(assistencias, mesAnterior, anoAnterior);
+    const dAtual = inMonth(despesas, mesAtual, anoAtual);
+    const dAnterior = inMonth(despesas, mesAnterior, anoAnterior);
+
+    const calcTrend = (atual: number, anterior: number) => {
+      if (anterior === 0) return null;
+      return ((atual - anterior) / anterior * 100).toFixed(1);
+    };
+
+    const brutoAtual = vAtual.reduce((s, v) => s + Number(v.valor), 0) + aAtual.reduce((s, a) => s + Number(a.valor_servico), 0);
+    const brutoAnterior = vAnterior.reduce((s, v) => s + Number(v.valor), 0) + aAnterior.reduce((s, a) => s + Number(a.valor_servico), 0);
+
+    const liqAtual = vAtual.reduce((s, v) => s + Number(v.valor), 0);
+    const liqAnterior = vAnterior.reduce((s, v) => s + Number(v.valor), 0);
+
+    const despAtual = dAtual.reduce((s, d) => s + Number(d.valor), 0);
+    const despAnterior = dAnterior.reduce((s, d) => s + Number(d.valor), 0);
+
+    const margemAtual = brutoAtual > 0 ? (liqAtual / brutoAtual) * 100 : 0;
+    const margemAnterior = brutoAnterior > 0 ? (liqAnterior / brutoAnterior) * 100 : 0;
+
+    const tmAtual = vAtual.length > 0 ? vAtual.reduce((s, v) => s + Number(v.valor), 0) / vAtual.length : 0;
+    const tmAnterior = vAnterior.length > 0 ? vAnterior.reduce((s, v) => s + Number(v.valor), 0) / vAnterior.length : 0;
+
+    return {
+      bruto: calcTrend(brutoAtual, brutoAnterior),
+      liquido: calcTrend(liqAtual, liqAnterior),
+      despesas: calcTrend(despAtual, despAnterior),
+      margem: calcTrend(margemAtual, margemAnterior),
+      ticket: calcTrend(tmAtual, tmAnterior),
+    };
+  }, [vendas, assistencias, despesas]);
+
+  // === CHART DATA ===
   const chartData = useMemo(() => {
     return meses.map((m, i) => {
       const mv = vendas.filter(v => new Date(v.created_at).getMonth() === i).reduce((s, v) => s + Number(v.valor), 0);
@@ -112,13 +185,18 @@ export default function Dashboard() {
 
   const despesasPorCategoria = useMemo(() => {
     const map: Record<string, number> = {};
-    filtered.despesas.forEach(d => {
-      map[d.tipo] = (map[d.tipo] || 0) + Number(d.valor);
-    });
+    filtered.despesas.forEach(d => { map[d.tipo] = (map[d.tipo] || 0) + Number(d.valor); });
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [filtered.despesas]);
 
-  const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  // === ÚLTIMAS VENDAS ===
+  const ultimasVendas = useMemo(() => {
+    const all = [
+      ...vendas.map(v => ({ data: v.created_at, descricao: v.produto, valor: Number(v.valor), tipo: v.tipo_venda === 'celular' ? 'Celular' : 'Venda' })),
+      ...assistencias.map(a => ({ data: a.created_at, descricao: `OS ${a.numero_os} - ${a.cliente}`, valor: Number(a.valor_servico), tipo: 'Assistência' })),
+    ];
+    return all.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()).slice(0, 5);
+  }, [vendas, assistencias]);
 
   const hasActiveFilters = filtro !== 'todos';
   const clearFilters = () => {
@@ -126,19 +204,58 @@ export default function Dashboard() {
     setFiltro('todos'); setDataInicio(undefined); setDataFim(undefined);
   };
 
+  const trendStr = (val: string | null, invert = false) => {
+    if (!val) return {};
+    const n = Number(val);
+    const up = invert ? n <= 0 : n >= 0;
+    return { trend: `${n >= 0 ? '+' : ''}${val}%`, trendUp: up };
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground text-sm">Visão geral do seu negócio</p>
+      {/* HEADER + FILTERS + SALDO */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+            <p className="text-muted-foreground text-sm">Visão geral do seu negócio</p>
+          </div>
+          <Card className="shadow-card border-primary/20 bg-primary/5">
+            <CardContent className="p-3 flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                <Wallet className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Caixa Hoje</p>
+                <p className="text-lg font-bold text-foreground">{fmt(saldoCaixa)}</p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-        <div className="flex gap-2 flex-wrap">
+
+        {/* Quick filters */}
+        <div className="flex gap-2 flex-wrap items-center">
+          <div className="flex gap-1.5">
+            {[
+              { label: 'Hoje', value: 'hoje' },
+              { label: 'Este mês', value: 'este_mes' },
+              { label: 'Este ano', value: 'este_ano' },
+              { label: 'Todos', value: 'todos' },
+            ].map(f => (
+              <Button
+                key={f.value}
+                variant={filtro === f.value ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFiltro(f.value)}
+                className="text-xs"
+              >
+                {f.label}
+              </Button>
+            ))}
+          </div>
           <Select value={filtro} onValueChange={setFiltro}>
-            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-[150px] h-8 text-xs"><SelectValue placeholder="Mês..." /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Todos</SelectItem>
-              <SelectItem value="hoje">Hoje</SelectItem>
               <SelectItem value="periodo">Período</SelectItem>
               {meses.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
             </SelectContent>
@@ -147,7 +264,7 @@ export default function Dashboard() {
             <div className="flex gap-2">
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className={cn(!dataInicioDate && "text-muted-foreground")}>
+                  <Button variant="outline" size="sm" className={cn("text-xs", !dataInicioDate && "text-muted-foreground")}>
                     <CalendarIcon className="mr-1 h-3 w-3" />
                     {dataInicioDate ? format(dataInicioDate, "dd/MM/yy") : "Início"}
                   </Button>
@@ -158,7 +275,7 @@ export default function Dashboard() {
               </Popover>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className={cn(!dataFimDate && "text-muted-foreground")}>
+                  <Button variant="outline" size="sm" className={cn("text-xs", !dataFimDate && "text-muted-foreground")}>
                     <CalendarIcon className="mr-1 h-3 w-3" />
                     {dataFimDate ? format(dataFimDate, "dd/MM/yy") : "Fim"}
                   </Button>
@@ -170,32 +287,38 @@ export default function Dashboard() {
             </div>
           )}
           {hasActiveFilters && (
-            <Button variant="destructive" size="sm" onClick={clearFilters}>
+            <Button variant="destructive" size="sm" onClick={clearFilters} className="text-xs">
               <FilterX className="mr-1 h-3 w-3" />Limpar
             </Button>
           )}
         </div>
       </div>
 
-      {/* Row 1: Main financial cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <StatCard title="Total Bruto" value={fmt(totalBruto)} icon={ShoppingCart} color="primary"
-          trend={crescimento ? `${Number(crescimento) >= 0 ? '+' : ''}${crescimento}%` : undefined}
-          trendUp={crescimento ? Number(crescimento) >= 0 : undefined}
-        />
-        <StatCard title="Venda Líquida" value={fmt(totalLiquido)} icon={DollarSign} color="success" />
-        <StatCard title="Despesas" value={fmt(totalDespesas)} icon={Receipt} color="destructive" />
-        <StatCard title="Lucro" value={fmt(lucroFinal)} icon={TrendingUp} color={lucroFinal >= 0 ? 'success' : 'destructive'} />
-        <StatCard title="Qtd. Vendas" value={String(qtdVendas)} icon={Hash} color="primary" />
-        <StatCard title="Ticket Médio" value={fmt(ticketMedio)} icon={ArrowUpDown} color="warning" />
+      {/* ROW 1: Receita e Resultado */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <StatCard title="Total Bruto" value={fmt(totalBruto)} icon={ShoppingCart} color="primary" {...trendStr(trends.bruto)} />
+        <StatCard title="Custo Peças" value={fmt(custoPecas)} icon={Package} color="warning" />
+        <StatCard title="Lucro Líquido" value={fmt(lucroLiquido)} icon={DollarSign} color="success" {...trendStr(trends.liquido)} />
       </div>
 
-      {/* Row 2: Detail cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard title="Lucro Assistências" value={fmt(lucroAssistencias)} icon={Wrench} color="success" />
-        <StatCard title="Lucro Vendas" value={fmt(lucroVendas)} icon={Smartphone} color="success" />
-        <StatCard title="Assistências" value={String(qtdAssistencias)} icon={Wrench} color="primary" />
+      {/* ROW 2: Despesas e Eficiência */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <StatCard title="Total Despesas" value={fmt(totalDespesas)} icon={Receipt} color="destructive" {...trendStr(trends.despesas, true)} />
+        <StatCard
+          title="Margem de Lucro"
+          value={`${margemLucro.toFixed(1)}%`}
+          icon={Percent}
+          color={margemLucro >= 0 ? 'success' : 'destructive'}
+          {...trendStr(trends.margem)}
+        />
+        <StatCard title="Ticket Médio" value={fmt(ticketMedio)} icon={ArrowUpDown} color="primary" {...trendStr(trends.ticket)} />
+      </div>
+
+      {/* ROW 3: Volume */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <StatCard title="Qtd. Vendas" value={String(qtdVendas)} icon={Hash} color="primary" />
         <StatCard title="Qtd. Despesas" value={String(qtdDespesas)} icon={Hash} color="warning" />
+        <StatCard title="Qtd. Assistências" value={String(qtdAssistencias)} icon={Wrench} color="primary" />
       </div>
 
       {/* Charts */}
@@ -252,6 +375,41 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Últimas Vendas */}
+      <Card className="shadow-card">
+        <CardHeader><CardTitle className="text-base">Últimas Movimentações</CardTitle></CardHeader>
+        <CardContent>
+          {ultimasVendas.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Descrição</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead className="text-right">Valor</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {ultimasVendas.map((item, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell className="text-sm">{format(new Date(item.data), 'dd/MM/yyyy')}</TableCell>
+                    <TableCell className="text-sm font-medium">{item.descricao}</TableCell>
+                    <TableCell>
+                      <Badge variant={item.tipo === 'Assistência' ? 'secondary' : 'default'} className="text-xs">
+                        {item.tipo}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right text-sm font-semibold">{fmt(item.valor)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <p className="text-center text-muted-foreground py-8">Nenhuma movimentação recente</p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
