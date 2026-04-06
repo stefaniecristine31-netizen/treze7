@@ -154,7 +154,6 @@ export default function Vendas() {
   }, [items, busca, filtroMes, filtroTipo, dataInicio, dataFim, valorMin, valorMax, ordem]);
 
   const totalVendas = filtered.reduce((s, v) => s + Number(v.valor), 0);
-  const totalLucro = filtered.reduce((s, v) => s + Number(v.lucro_venda || v.valor), 0);
   const ticketMedio = filtered.length > 0 ? totalVendas / filtered.length : 0;
   const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
