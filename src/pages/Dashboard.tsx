@@ -93,10 +93,13 @@ export default function Dashboard() {
   }), [vendas, despesas, assistencias, filtro, dataInicio, dataFim]);
 
   // === CALCULATIONS (corrected per user rules) ===
-  // Total Bruto = Sum(vendas.valor) + Sum(assistencias.valor_servico)
-  const totalVendas = filtered.vendas.reduce((s, v) => s + Number(v.valor), 0);
+  // Total Bruto = vendas (produto + celular) + assistências (valor_servico)
+  // Exclui vendas tipo 'assistencia' pois são apenas o lucro já lançado
+  const vendasProdutoCelular = filtered.vendas.filter(v => (v.tipo_venda || 'produto') !== 'assistencia');
+  const totalVendasProdCel = vendasProdutoCelular.reduce((s, v) => s + Number(v.valor), 0);
   const totalBrutoAssist = filtered.assistencias.reduce((s, a) => s + Number(a.valor_servico), 0);
-  const totalBruto = totalVendas + totalBrutoAssist;
+  const totalBruto = totalVendasProdCel + totalBrutoAssist;
+  const totalVendas = filtered.vendas.reduce((s, v) => s + Number(v.valor), 0);
 
   // Lucro Líquido = Sum(vendas.valor) — assistência lucro already included in vendas
   const lucroLiquido = totalVendas;
@@ -148,8 +151,8 @@ export default function Dashboard() {
       return ((atual - anterior) / anterior * 100).toFixed(1);
     };
 
-    const brutoAtual = vAtual.reduce((s, v) => s + Number(v.valor), 0) + aAtual.reduce((s, a) => s + Number(a.valor_servico), 0);
-    const brutoAnterior = vAnterior.reduce((s, v) => s + Number(v.valor), 0) + aAnterior.reduce((s, a) => s + Number(a.valor_servico), 0);
+    const brutoAtual = vAtual.filter(v => (v.tipo_venda || 'produto') !== 'assistencia').reduce((s, v) => s + Number(v.valor), 0) + aAtual.reduce((s, a) => s + Number(a.valor_servico), 0);
+    const brutoAnterior = vAnterior.filter(v => (v.tipo_venda || 'produto') !== 'assistencia').reduce((s, v) => s + Number(v.valor), 0) + aAnterior.reduce((s, a) => s + Number(a.valor_servico), 0);
 
     const liqAtual = vAtual.reduce((s, v) => s + Number(v.valor), 0);
     const liqAnterior = vAnterior.reduce((s, v) => s + Number(v.valor), 0);

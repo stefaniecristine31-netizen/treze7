@@ -12,7 +12,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit2, X, CalendarIcon, Filter, ShoppingCart, DollarSign, TrendingUp, Eye, Download, Printer, FilterX, Smartphone } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, CalendarIcon, Filter, ShoppingCart, DollarSign, Eye, Download, Printer, FilterX, Smartphone } from 'lucide-react';
 import { StatCard } from '@/components/StatCard';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -154,7 +154,6 @@ export default function Vendas() {
   }, [items, busca, filtroMes, filtroTipo, dataInicio, dataFim, valorMin, valorMax, ordem]);
 
   const totalVendas = filtered.reduce((s, v) => s + Number(v.valor), 0);
-  const totalLucro = filtered.reduce((s, v) => s + Number(v.lucro_venda || v.valor), 0);
   const ticketMedio = filtered.length > 0 ? totalVendas / filtered.length : 0;
   const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
@@ -170,9 +169,8 @@ export default function Vendas() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Vendas</h1>
 
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <StatCard title="Total Vendas" value={fmt(totalVendas)} icon={ShoppingCart} color="primary" />
-        <StatCard title="Lucro Vendas" value={fmt(totalLucro)} icon={TrendingUp} color="success" />
         <StatCard title="Quantidade" value={String(filtered.length)} icon={DollarSign} color="warning" />
         <StatCard title="Ticket Médio" value={fmt(ticketMedio)} icon={Smartphone} color="primary" />
       </div>
