@@ -98,7 +98,7 @@ export default function Assistencia() {
       toast.success('Assistência atualizada');
     } else {
       const { data } = await supabase.from('assistencias').insert(obj).select().single();
-      if (data && (form.status === 'Concluído' || form.status === 'Entregue')) {
+      if (data && form.status === 'Entregue') {
         await supabase.from('vendas').insert({
           produto: `Assistência - ${form.cliente}`, valor: lucro,
           assistencia_id: data.id, user_id: user!.id, loja_id: lojaId,
