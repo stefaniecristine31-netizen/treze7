@@ -82,11 +82,25 @@ export default function Assistencia() {
 
     if (editId) {
       await supabase.from('assistencias').update(obj).eq('id', editId);
-      await supabase.from('vendas').update({ produto: `Assistência - ${form.cliente}`, valor: lucro }).eq('assistencia_id', editId);
+      if (form.status === 'Concluído' || form.status === 'Entregue') {
+        // Check if venda already exists for this assistencia
+        const { data: existingVenda } = await supabase.from('vendas').select('id').eq('assistencia_id', editId).maybeSingle();
+        if (existingVenda) {
+          await supabase.from('vendas').update({ produto: `Assistência - ${form.cliente}`, valor: lucro }).eq('assistencia_id', editId);
+        } else {
+          await supabase.from('vendas').insert({
+            produto: `Assistência - ${form.cliente}`, valor: lucro,
+            assistencia_id: editId, user_id: user!.id, loja_id: lojaId,
+          });
+        }
+      } else {
+        // If status is not Concluído/Entregue, remove any existing venda
+        await supabase.from('vendas').delete().eq('assistencia_id', editId);
+      }
       toast.success('Assistência atualizada');
     } else {
       const { data } = await supabase.from('assistencias').insert(obj).select().single();
-      if (data) {
+      if (data && (form.status === 'Concluído' || form.status === 'Entregue')) {
         await supabase.from('vendas').insert({
           produto: `Assistência - ${form.cliente}`, valor: lucro,
           assistencia_id: data.id, user_id: user!.id, loja_id: lojaId,
