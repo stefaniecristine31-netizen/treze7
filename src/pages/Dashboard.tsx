@@ -97,7 +97,8 @@ export default function Dashboard() {
   // Exclui vendas tipo 'assistencia' pois são apenas o lucro já lançado
   const vendasProdutoCelular = filtered.vendas.filter(v => !(v.produto || '').startsWith('Assistência -'));
   const totalVendasProdCel = vendasProdutoCelular.reduce((s, v) => s + Number(v.valor), 0);
-  const totalBrutoAssist = filtered.assistencias.reduce((s, a) => s + Number(a.valor_servico), 0);
+  const assistenciasEntregues = filtered.assistencias.filter(a => a.status === 'Entregue');
+  const totalBrutoAssist = assistenciasEntregues.reduce((s, a) => s + Number(a.valor_servico), 0);
   const totalBruto = totalVendasProdCel + totalBrutoAssist;
   const totalVendas = filtered.vendas.reduce((s, v) => s + Number(v.valor), 0);
 
