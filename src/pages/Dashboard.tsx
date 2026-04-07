@@ -178,11 +178,12 @@ export default function Dashboard() {
   // === CHART DATA ===
   const chartData = useMemo(() => {
     return meses.map((m, i) => {
-      const mv = vendas.filter(v => new Date(v.created_at).getMonth() === i).reduce((s, v) => s + Number(v.valor), 0);
+      const vendasMes = vendas.filter(v => new Date(v.created_at).getMonth() === i);
+      const vendasSemAssist = vendasMes.filter(v => !(v.produto || '').startsWith('Assistência -')).reduce((s, v) => s + Number(v.valor), 0);
       const ma = assistencias.filter(a => new Date(a.created_at).getMonth() === i).reduce((s, a) => s + Number(a.valor_servico), 0);
       const md = despesas.filter(d => new Date(d.created_at).getMonth() === i).reduce((s, d) => s + Number(d.valor), 0);
-      const bruto = mv + ma;
-      return { mes: m.slice(0, 3), vendas: mv, assistencias: ma, despesas: md, lucro: bruto - md };
+      const totalVendasMes = vendasMes.reduce((s, v) => s + Number(v.valor), 0);
+      return { mes: m.slice(0, 3), vendas: vendasSemAssist, assistencias: ma, despesas: md, lucro: totalVendasMes };
     });
   }, [vendas, despesas, assistencias]);
 
