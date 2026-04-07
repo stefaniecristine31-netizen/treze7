@@ -155,8 +155,8 @@ export default function Dashboard() {
     const brutoAtual = vAtual.filter(v => !(v.produto || '').startsWith('Assistência -')).reduce((s, v) => s + Number(v.valor), 0) + aAtual.filter(a => a.status === 'Entregue').reduce((s, a) => s + Number(a.valor_servico), 0);
     const brutoAnterior = vAnterior.filter(v => !(v.produto || '').startsWith('Assistência -')).reduce((s, v) => s + Number(v.valor), 0) + aAnterior.filter(a => a.status === 'Entregue').reduce((s, a) => s + Number(a.valor_servico), 0);
 
-    const liqAtual = vAtual.reduce((s, v) => s + Number(v.valor), 0);
-    const liqAnterior = vAnterior.reduce((s, v) => s + Number(v.valor), 0);
+    const liqAtual = vAtual.reduce((s, v) => s + Number(v.lucro_venda || v.valor), 0);
+    const liqAnterior = vAnterior.reduce((s, v) => s + Number(v.lucro_venda || v.valor), 0);
 
     const despAtual = dAtual.reduce((s, d) => s + Number(d.valor), 0);
     const despAnterior = dAnterior.reduce((s, d) => s + Number(d.valor), 0);
