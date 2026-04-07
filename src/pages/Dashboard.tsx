@@ -97,7 +97,8 @@ export default function Dashboard() {
   // Exclui vendas tipo 'assistencia' pois são apenas o lucro já lançado
   const vendasProdutoCelular = filtered.vendas.filter(v => !(v.produto || '').startsWith('Assistência -'));
   const totalVendasProdCel = vendasProdutoCelular.reduce((s, v) => s + Number(v.valor), 0);
-  const totalBrutoAssist = filtered.assistencias.reduce((s, a) => s + Number(a.valor_servico), 0);
+  const assistenciasEntregues = filtered.assistencias.filter(a => a.status === 'Entregue');
+  const totalBrutoAssist = assistenciasEntregues.reduce((s, a) => s + Number(a.valor_servico), 0);
   const totalBruto = totalVendasProdCel + totalBrutoAssist;
   const totalVendas = filtered.vendas.reduce((s, v) => s + Number(v.valor), 0);
 
@@ -105,7 +106,7 @@ export default function Dashboard() {
   const lucroLiquido = totalVendas;
 
   // Custo Peças (assistências) = valor_servico - lucro for each
-  const custoPecas = filtered.assistencias.reduce((s, a) => s + (Number(a.valor_servico) - Number(a.lucro)), 0);
+  const custoPecas = assistenciasEntregues.reduce((s, a) => s + (Number(a.valor_servico) - Number(a.lucro)), 0);
 
   // Despesas
   const totalDespesas = filtered.despesas.reduce((s, d) => s + Number(d.valor), 0);
@@ -151,8 +152,8 @@ export default function Dashboard() {
       return ((atual - anterior) / anterior * 100).toFixed(1);
     };
 
-    const brutoAtual = vAtual.filter(v => !(v.produto || '').startsWith('Assistência -')).reduce((s, v) => s + Number(v.valor), 0) + aAtual.reduce((s, a) => s + Number(a.valor_servico), 0);
-    const brutoAnterior = vAnterior.filter(v => !(v.produto || '').startsWith('Assistência -')).reduce((s, v) => s + Number(v.valor), 0) + aAnterior.reduce((s, a) => s + Number(a.valor_servico), 0);
+    const brutoAtual = vAtual.filter(v => !(v.produto || '').startsWith('Assistência -')).reduce((s, v) => s + Number(v.valor), 0) + aAtual.filter(a => a.status === 'Entregue').reduce((s, a) => s + Number(a.valor_servico), 0);
+    const brutoAnterior = vAnterior.filter(v => !(v.produto || '').startsWith('Assistência -')).reduce((s, v) => s + Number(v.valor), 0) + aAnterior.filter(a => a.status === 'Entregue').reduce((s, a) => s + Number(a.valor_servico), 0);
 
     const liqAtual = vAtual.reduce((s, v) => s + Number(v.valor), 0);
     const liqAnterior = vAnterior.reduce((s, v) => s + Number(v.valor), 0);
@@ -180,7 +181,7 @@ export default function Dashboard() {
     return meses.map((m, i) => {
       const vendasMes = vendas.filter(v => new Date(v.created_at).getMonth() === i);
       const vendasSemAssist = vendasMes.filter(v => !(v.produto || '').startsWith('Assistência -')).reduce((s, v) => s + Number(v.valor), 0);
-      const ma = assistencias.filter(a => new Date(a.created_at).getMonth() === i).reduce((s, a) => s + Number(a.valor_servico), 0);
+      const ma = assistencias.filter(a => new Date(a.created_at).getMonth() === i && a.status === 'Entregue').reduce((s, a) => s + Number(a.valor_servico), 0);
       const md = despesas.filter(d => new Date(d.created_at).getMonth() === i).reduce((s, d) => s + Number(d.valor), 0);
       const totalVendasMes = vendasMes.reduce((s, v) => s + Number(v.valor), 0);
       return { mes: m.slice(0, 3), vendas: vendasSemAssist, assistencias: ma, despesas: md, lucro: totalVendasMes };
