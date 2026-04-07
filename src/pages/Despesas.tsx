@@ -20,8 +20,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 
 const tiposDespesa = [
-  'Aluguel', 'Água', 'Luz', 'Internet', 'CNPJ', 'Financiamento',
-  'Compra Sininho', 'Compra Ana', 'Royalts Leonardo', 'Outro'
+  'Aluguel', 'Água', 'Luz', 'Internet', 'CNPJ', 'Financiamento', 'Outro'
 ];
 
 const PREFIX = 'filtro_despesas_';
