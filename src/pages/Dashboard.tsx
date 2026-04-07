@@ -106,7 +106,7 @@ export default function Dashboard() {
   const lucroLiquido = totalVendas;
 
   // Custo Peças (assistências) = valor_servico - lucro for each
-  const custoPecas = filtered.assistencias.reduce((s, a) => s + (Number(a.valor_servico) - Number(a.lucro)), 0);
+  const custoPecas = assistenciasEntregues.reduce((s, a) => s + (Number(a.valor_servico) - Number(a.lucro)), 0);
 
   // Despesas
   const totalDespesas = filtered.despesas.reduce((s, d) => s + Number(d.valor), 0);
