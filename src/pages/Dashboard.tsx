@@ -102,8 +102,8 @@ export default function Dashboard() {
   const totalBruto = totalVendasProdCel + totalBrutoAssist;
   const totalVendas = filtered.vendas.reduce((s, v) => s + Number(v.valor), 0);
 
-  // Lucro Líquido = Sum(vendas.valor) — assistência lucro already included in vendas
-  const lucroLiquido = totalVendas;
+  // Lucro Líquido = Sum(vendas.lucro_venda) — usa o lucro real de cada venda
+  const lucroLiquido = filtered.vendas.reduce((s, v) => s + Number(v.lucro_venda || v.valor), 0);
 
   // Custo Peças (assistências) = valor_servico - lucro for each
   const custoPecas = assistenciasEntregues.reduce((s, a) => s + (Number(a.valor_servico) - Number(a.lucro)), 0);
