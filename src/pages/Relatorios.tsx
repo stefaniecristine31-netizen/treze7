@@ -148,40 +148,59 @@ export default function Relatorios() {
     const despesas = filterByPeriod(d.data || []);
     const assistencias = filterByPeriod(a.data || []);
 
-    const brutoVendas = vendas.reduce((s, x) => s + Number(x.valor), 0);
-    const brutoAssist = assistencias.reduce((s, x) => s + Number(x.valor_servico), 0);
-    const totalBruto = brutoVendas + brutoAssist;
+    // Separar vendas normais das vendas de assistência (lançadas automaticamente)
+    const vendasNormais = vendas.filter(x => !x.produto?.startsWith('Assistência -'));
+    const celulares = vendasNormais.filter(x => x.tipo_venda === 'celular');
 
-    const lucroVendas = vendas.reduce((s, x) => s + Number(x.lucro_venda || x.valor), 0);
+    // TOTAL BRUTO = vendas normais (valor) + assistências (valor bruto do serviço)
+    const brutoVendasNormais = vendasNormais.reduce((s, x) => s + Number(x.valor), 0);
+    const brutoAssist = assistencias.reduce((s, x) => s + Number(x.valor_servico), 0);
+    const totalBruto = brutoVendasNormais + brutoAssist;
+
+    // VENDA LÍQUIDA = lucro das vendas normais (sem assistências)
+    const vendaLiquida = vendasNormais.reduce((s, x) => s + Number(x.lucro_venda || x.valor), 0);
+
+    // LUCRO LÍQUIDO ASSISTÊNCIAS = lucro direto da aba assistências
     const lucroAssist = assistencias.reduce((s, x) => s + Number(x.lucro), 0);
-    const totalLiquido = lucroVendas + lucroAssist;
+
+    // TOTAL LÍQUIDO = venda líquida + lucro assistências
+    const totalLiquido = vendaLiquida + lucroAssist;
+
+    // Custos das assistências
+    const custoPecas = assistencias.reduce((s, x) => s + Number(x.valor_peca), 0);
+    const custoMaoDeObra = assistencias.reduce((s, x) => s + Number(x.mao_de_obra), 0);
+    const custoTotalAssist = custoPecas + custoMaoDeObra;
 
     const totalDespesas = despesas.reduce((s, x) => s + Number(x.valor), 0);
-    const lucroFinal = totalLiquido - totalDespesas;
-
-    const celulares = vendas.filter(x => x.tipo_venda === 'celular');
+    const lucroFinal = totalBruto - totalDespesas;
 
     await gerarRelatorioPdf(
       `Relatório Financeiro — ${periodoLabel()}`,
       ['Categoria', 'Valor'],
       [
         ['Total Bruto (entradas)', fmt(totalBruto)],
-        ['  → Vendas', fmt(brutoVendas)],
-        ['  → Assistências', fmt(brutoAssist)],
-        ['Venda Líquida (lucros)', fmt(totalLiquido)],
-        ['  → Lucro Vendas', fmt(lucroVendas)],
-        ['  → Lucro Assistências', fmt(lucroAssist)],
+        ['  → Vendas normais', fmt(brutoVendasNormais)],
+        ['  → Assistências (valor bruto)', fmt(brutoAssist)],
+        ['', ''],
+        ['Total Líquido', fmt(totalLiquido)],
+        ['  → Venda Líquida (vendas normais)', fmt(vendaLiquida)],
+        ['  → Lucro Líquido Assistências', fmt(lucroAssist)],
+        ['', ''],
+        ['Custos das Assistências', fmt(custoTotalAssist)],
+        ['  → Peças', fmt(custoPecas)],
+        ['  → Mão de Obra', fmt(custoMaoDeObra)],
+        ['', ''],
         ['Total Despesas', fmt(totalDespesas)],
         ['Lucro Final', fmt(lucroFinal)],
         ['---', '---'],
-        ['Qtd. Vendas', String(vendas.length)],
+        ['Qtd. Vendas normais', String(vendasNormais.length)],
         ['Qtd. Celulares', String(celulares.length)],
         ['Qtd. Assistências', String(assistencias.length)],
         ['Qtd. Despesas', String(despesas.length)],
       ],
       {
         'Total Bruto': fmt(totalBruto),
-        'Venda Líquida': fmt(totalLiquido),
+        'Total Líquido': fmt(totalLiquido),
         'Lucro Final': fmt(lucroFinal),
       },
       config
