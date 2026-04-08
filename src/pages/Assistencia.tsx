@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatCard } from '@/components/StatCard';
 import { toast } from 'sonner';
 import { Plus, X, Wrench, DollarSign, CalendarDays, CalendarIcon, Calculator, FilterX } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { gerarOsPdf } from '@/lib/pdfUtils';
@@ -24,6 +24,7 @@ import OrcamentoTab from '@/components/assistencia/OrcamentoTab';
 const tecnicos = ['Assistência Loja', 'Assistência Terceirizada'];
 const garantias = ['3 meses', '6 meses', '1 semana', 'Outro'];
 const statusOptions = ['Em andamento', 'Concluído', 'Entregue'];
+const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const PREFIX = 'filtro_assistencia_';
 
 export default function Assistencia() {
@@ -43,7 +44,15 @@ export default function Assistencia() {
   // Persistent filters
   const [busca, setBusca] = usePersistedFilter(PREFIX + 'busca', '');
   const [filtroTecnico, setFiltroTecnico] = usePersistedFilter(PREFIX + 'tecnico', 'todos');
+  const [filtroStatus, setFiltroStatus] = usePersistedFilter(PREFIX + 'status', 'todos');
+  const [filtroMes, setFiltroMes] = usePersistedFilter(PREFIX + 'mes', 'todos');
+  const [filtroPeriodo, setFiltroPeriodo] = usePersistedFilter(PREFIX + 'periodo', 'todos');
+  const [dataInicio, setDataInicio] = usePersistedFilter<string | undefined>(PREFIX + 'dataInicio', undefined);
+  const [dataFim, setDataFim] = usePersistedFilter<string | undefined>(PREFIX + 'dataFim', undefined);
   const [ordem, setOrdem] = usePersistedFilter<'desc' | 'asc'>(PREFIX + 'ordem', 'desc');
+
+  const dataInicioDate = dataInicio ? new Date(dataInicio) : undefined;
+  const dataFimDate = dataFim ? new Date(dataFim) : undefined;
 
   const load = async () => {
     const { data } = await supabase.from('assistencias').select('*').order('created_at', { ascending: false });
@@ -85,11 +94,12 @@ export default function Assistencia() {
       if (form.status === 'Entregue') {
         const { data: existingVenda } = await supabase.from('vendas').select('id').eq('assistencia_id', editId).maybeSingle();
         if (existingVenda) {
-          await supabase.from('vendas').update({ produto: `Assistência - ${form.cliente}`, valor: lucro }).eq('assistencia_id', editId);
+          await supabase.from('vendas').update({ produto: `Assistência - ${form.cliente}`, valor: lucro, tipo_venda: 'assistencia' }).eq('assistencia_id', editId);
         } else {
           await supabase.from('vendas').insert({
             produto: `Assistência - ${form.cliente}`, valor: lucro,
             assistencia_id: editId, user_id: user!.id, loja_id: lojaId,
+            tipo_venda: 'assistencia',
           });
         }
       } else {
@@ -102,6 +112,7 @@ export default function Assistencia() {
         await supabase.from('vendas').insert({
           produto: `Assistência - ${form.cliente}`, valor: lucro,
           assistencia_id: data.id, user_id: user!.id, loja_id: lojaId,
+          tipo_venda: 'assistencia',
         });
       }
       toast.success('Assistência registrada');
@@ -158,13 +169,67 @@ export default function Assistencia() {
     setActiveTab('assistencia');
   };
 
+  const handlePeriodo = (periodo: string) => {
+    setFiltroPeriodo(periodo);
+    // Clear custom date range when using shortcuts
+    if (periodo !== 'personalizado') {
+      setDataInicio(undefined);
+      setDataFim(undefined);
+    }
+    // Clear month filter when using period shortcuts
+    if (periodo !== 'todos') {
+      setFiltroMes('todos');
+    }
+  };
+
   const filtered = useMemo(() => {
     let result = items;
+
+    // Text search
     if (busca) result = result.filter(i => i.cliente.toLowerCase().includes(busca.toLowerCase()));
+
+    // Technician filter
     if (filtroTecnico !== 'todos') result = result.filter(i => i.tecnico === filtroTecnico);
+
+    // Status filter
+    if (filtroStatus !== 'todos') result = result.filter(i => i.status === filtroStatus);
+
+    // Month filter
+    if (filtroMes !== 'todos') {
+      const monthIdx = meses.indexOf(filtroMes);
+      if (monthIdx >= 0) {
+        const currentYear = new Date().getFullYear();
+        result = result.filter(i => {
+          const d = new Date(i.created_at);
+          return d.getMonth() === monthIdx && d.getFullYear() === currentYear;
+        });
+      }
+    }
+
+    // Period filter
+    const now = new Date();
+    if (filtroPeriodo === 'hoje') {
+      const start = startOfDay(now);
+      const end = endOfDay(now);
+      result = result.filter(i => { const d = new Date(i.created_at); return d >= start && d <= end; });
+    } else if (filtroPeriodo === 'mes') {
+      const start = startOfMonth(now);
+      const end = endOfMonth(now);
+      result = result.filter(i => { const d = new Date(i.created_at); return d >= start && d <= end; });
+    } else if (filtroPeriodo === 'ano') {
+      const start = startOfYear(now);
+      const end = endOfYear(now);
+      result = result.filter(i => { const d = new Date(i.created_at); return d >= start && d <= end; });
+    } else if (filtroPeriodo === 'personalizado') {
+      if (dataInicioDate) result = result.filter(i => new Date(i.created_at) >= startOfDay(dataInicioDate));
+      if (dataFimDate) result = result.filter(i => new Date(i.created_at) <= endOfDay(dataFimDate));
+    }
+
+    // Sort
     if (ordem === 'asc') result = [...result].reverse();
+
     return result;
-  }, [items, busca, filtroTecnico, ordem]);
+  }, [items, busca, filtroTecnico, filtroStatus, filtroMes, filtroPeriodo, dataInicio, dataFim, ordem]);
 
   const totalAssist = items.length;
   const lucroTotal = items.reduce((s, a) => s + Number(a.lucro), 0);
@@ -173,11 +238,13 @@ export default function Assistencia() {
   const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
   const lucroPreview = calcLucro();
 
-  const hasActiveFilters = busca || filtroTecnico !== 'todos';
+  const hasActiveFilters = busca || filtroTecnico !== 'todos' || filtroStatus !== 'todos' || filtroMes !== 'todos' || filtroPeriodo !== 'todos' || dataInicio || dataFim;
 
   const clearFilters = () => {
     clearPersistedFilters(PREFIX);
-    setBusca(''); setFiltroTecnico('todos'); setOrdem('desc');
+    setBusca(''); setFiltroTecnico('todos'); setFiltroStatus('todos');
+    setFiltroMes('todos'); setFiltroPeriodo('todos');
+    setDataInicio(undefined); setDataFim(undefined); setOrdem('desc');
   };
 
   return (
@@ -252,25 +319,91 @@ export default function Assistencia() {
           </Card>
 
           {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Input placeholder="Buscar cliente..." value={busca} onChange={e => setBusca(e.target.value)} className="flex-1" />
-            <Select value={filtroTecnico} onValueChange={setFiltroTecnico}>
-              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos técnicos</SelectItem>
-                {tecnicos.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={ordem} onValueChange={(v: 'desc' | 'asc') => setOrdem(v)}>
-              <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="desc">Mais recentes</SelectItem>
-                <SelectItem value="asc">Mais antigas</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="space-y-3">
+            {/* Period shortcuts */}
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: 'Hoje', value: 'hoje' },
+                { label: 'Este mês', value: 'mes' },
+                { label: 'Este ano', value: 'ano' },
+                { label: 'Todos', value: 'todos' },
+                { label: 'Personalizado', value: 'personalizado' },
+              ].map(p => (
+                <Button
+                  key={p.value}
+                  variant={filtroPeriodo === p.value ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handlePeriodo(p.value)}
+                >
+                  {p.label}
+                </Button>
+              ))}
+            </div>
+
+            {/* Custom date range */}
+            {filtroPeriodo === 'personalizado' && (
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("flex-1 justify-start text-left font-normal", !dataInicioDate && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dataInicioDate ? format(dataInicioDate, "dd/MM/yyyy") : "Data início"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={dataInicioDate} onSelect={d => setDataInicio(d?.toISOString())} initialFocus className="p-3 pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("flex-1 justify-start text-left font-normal", !dataFimDate && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dataFimDate ? format(dataFimDate, "dd/MM/yyyy") : "Data fim"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={dataFimDate} onSelect={d => setDataFim(d?.toISOString())} initialFocus className="p-3 pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
+
+            {/* Search + dropdowns */}
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input placeholder="Buscar cliente..." value={busca} onChange={e => setBusca(e.target.value)} className="flex-1" />
+              <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos status</SelectItem>
+                  {statusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filtroTecnico} onValueChange={setFiltroTecnico}>
+                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos técnicos</SelectItem>
+                  {tecnicos.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filtroMes} onValueChange={v => { setFiltroMes(v); if (v !== 'todos') setFiltroPeriodo('todos'); }}>
+                <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os meses</SelectItem>
+                  {meses.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={ordem} onValueChange={(v: 'desc' | 'asc') => setOrdem(v)}>
+                <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="desc">Mais recentes</SelectItem>
+                  <SelectItem value="asc">Mais antigas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {hasActiveFilters && (
               <Button variant="destructive" size="sm" onClick={clearFilters}>
-                <FilterX className="mr-2 h-4 w-4" />Limpar
+                <FilterX className="mr-2 h-4 w-4" />Limpar filtros
               </Button>
             )}
           </div>
