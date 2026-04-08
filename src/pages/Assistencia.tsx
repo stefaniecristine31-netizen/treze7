@@ -231,10 +231,10 @@ export default function Assistencia() {
     return result;
   }, [items, busca, filtroTecnico, filtroStatus, filtroMes, filtroPeriodo, dataInicio, dataFim, ordem]);
 
-  const totalAssist = items.length;
-  const lucroTotal = items.reduce((s, a) => s + Number(a.lucro), 0);
+  const totalAssist = filtered.length;
+  const lucroTotal = filtered.reduce((s, a) => s + Number(a.lucro), 0);
   const hoje = new Date().toISOString().slice(0, 10);
-  const assistHoje = items.filter(i => i.created_at?.slice(0, 10) === hoje).length;
+  const assistHoje = filtered.filter(i => i.created_at?.slice(0, 10) === hoje).length;
   const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
   const lucroPreview = calcLucro();
 
