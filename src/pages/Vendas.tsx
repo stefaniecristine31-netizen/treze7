@@ -59,15 +59,16 @@ export default function Vendas() {
   const lucroAutoCelular = isCelular ? (parseFloat(valor) || 0) - (parseFloat(valorCompra) || 0) : 0;
 
   const load = async () => {
-    const { data } = await supabase.from('vendas').select('*').order('created_at', { ascending: false });
+    if (!lojaId) return;
+    const { data } = await supabase.from('vendas').select('*').eq('loja_id', lojaId).order('created_at', { ascending: false });
     setItems(data || []);
   };
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !lojaId) return;
     load();
-    supabase.from('configuracoes').select('*').maybeSingle().then(({ data }) => setConfig(data));
-  }, [user]);
+    supabase.from('configuracoes').select('*').eq('loja_id', lojaId).maybeSingle().then(({ data }) => setConfig(data));
+  }, [user, lojaId]);
 
   const save = async () => {
     if (isCelular) {

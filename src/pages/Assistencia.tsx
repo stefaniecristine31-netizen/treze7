@@ -55,15 +55,16 @@ export default function Assistencia() {
   const dataFimDate = dataFim ? new Date(dataFim) : undefined;
 
   const load = async () => {
-    const { data } = await supabase.from('assistencias').select('*').order('created_at', { ascending: false });
+    if (!lojaId) return;
+    const { data } = await supabase.from('assistencias').select('*').eq('loja_id', lojaId).order('created_at', { ascending: false });
     setItems(data || []);
   };
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !lojaId) return;
     load();
-    supabase.from('configuracoes').select('*').maybeSingle().then(({ data }) => setConfig(data));
-  }, [user]);
+    supabase.from('configuracoes').select('*').eq('loja_id', lojaId).maybeSingle().then(({ data }) => setConfig(data));
+  }, [user, lojaId]);
 
   const set = (field: string, value: string) => setForm(f => ({ ...f, [field]: value }));
 
