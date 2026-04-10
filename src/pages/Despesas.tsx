@@ -51,11 +51,12 @@ export default function Despesas() {
   const dataFimDate = dataFim ? new Date(dataFim) : undefined;
 
   const load = async () => {
-    const { data } = await supabase.from('despesas').select('*').order('created_at', { ascending: false });
+    if (!lojaId) return;
+    const { data } = await supabase.from('despesas').select('*').eq('loja_id', lojaId).order('created_at', { ascending: false });
     setItems(data || []);
   };
 
-  useEffect(() => { if (user) load(); }, [user]);
+  useEffect(() => { if (user && lojaId) load(); }, [user, lojaId]);
 
   const save = async () => {
     if (!tipo || !valor) { toast.error('Preencha tipo e valor'); return; }

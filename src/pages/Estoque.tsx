@@ -22,11 +22,12 @@ export default function Estoque() {
   const [busca, setBusca] = useState('');
 
   const load = async () => {
-    const { data } = await supabase.from('estoque').select('*').order('created_at', { ascending: false });
+    if (!lojaId) return;
+    const { data } = await supabase.from('estoque').select('*').eq('loja_id', lojaId).order('created_at', { ascending: false });
     setItems(data || []);
   };
 
-  useEffect(() => { if (user) load(); }, [user]);
+  useEffect(() => { if (user && lojaId) load(); }, [user, lojaId]);
 
   const save = async () => {
     if (!produto || !quantidade) { toast.error('Preencha produto e quantidade'); return; }

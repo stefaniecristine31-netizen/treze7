@@ -18,11 +18,12 @@ export default function Compras() {
   const [editId, setEditId] = useState<string | null>(null);
 
   const load = async () => {
-    const { data } = await supabase.from('compras').select('*').order('created_at', { ascending: false });
+    if (!lojaId) return;
+    const { data } = await supabase.from('compras').select('*').eq('loja_id', lojaId).order('created_at', { ascending: false });
     setItems(data || []);
   };
 
-  useEffect(() => { if (user) load(); }, [user]);
+  useEffect(() => { if (user && lojaId) load(); }, [user, lojaId]);
 
   const save = async () => {
     if (!produto) { toast.error('Preencha o produto'); return; }

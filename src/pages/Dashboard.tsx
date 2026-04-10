@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useLoja } from '@/hooks/useLoja';
 import { usePersistedFilter, clearPersistedFilters } from '@/hooks/usePersistedFilter';
 import { StatCard } from '@/components/StatCard';
 import {
@@ -26,6 +27,7 @@ const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigi
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { lojaId } = useLoja();
   const [vendas, setVendas] = useState<any[]>([]);
   const [despesas, setDespesas] = useState<any[]>([]);
   const [assistencias, setAssistencias] = useState<any[]>([]);
@@ -39,14 +41,14 @@ export default function Dashboard() {
   const dataFimDate = dataFim ? new Date(dataFim) : undefined;
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !lojaId) return;
     const load = async () => {
       const hoje = new Date().toISOString().slice(0, 10);
       const [v, d, a, c] = await Promise.all([
-        supabase.from('vendas').select('*'),
-        supabase.from('despesas').select('*'),
-        supabase.from('assistencias').select('*'),
-        supabase.from('caixa').select('*').eq('data', hoje).order('created_at', { ascending: true }),
+        supabase.from('vendas').select('*').eq('loja_id', lojaId),
+        supabase.from('despesas').select('*').eq('loja_id', lojaId),
+        supabase.from('assistencias').select('*').eq('loja_id', lojaId),
+        supabase.from('caixa').select('*').eq('loja_id', lojaId).eq('data', hoje).order('created_at', { ascending: true }),
       ]);
       setVendas(v.data || []);
       setDespesas(d.data || []);
@@ -54,7 +56,7 @@ export default function Dashboard() {
       setCaixa(c.data || []);
     };
     load();
-  }, [user]);
+  }, [user, lojaId]);
 
   // === FILTER LOGIC ===
   const filterByDate = (items: any[]) => {

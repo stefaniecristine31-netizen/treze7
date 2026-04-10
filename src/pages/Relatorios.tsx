@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useLoja } from '@/hooks/useLoja';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -22,6 +23,7 @@ const periodos = [
 
 export default function Relatorios() {
   const { user } = useAuth();
+  const { lojaId } = useLoja();
   const [config, setConfig] = useState<any>(null);
   const [loading, setLoading] = useState('');
   const [periodo, setPeriodo] = useState('todos');
@@ -29,9 +31,9 @@ export default function Relatorios() {
   const [dataFim, setDataFim] = useState<Date | undefined>(undefined);
 
   useEffect(() => {
-    if (!user) return;
-    supabase.from('configuracoes').select('*').maybeSingle().then(({ data }) => setConfig(data));
-  }, [user]);
+    if (!user || !lojaId) return;
+    supabase.from('configuracoes').select('*').eq('loja_id', lojaId).maybeSingle().then(({ data }) => setConfig(data));
+  }, [user, lojaId]);
 
   const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
@@ -79,7 +81,7 @@ export default function Relatorios() {
 
   const gerarVendas = async () => {
     setLoading('vendas');
-    const { data } = await supabase.from('vendas').select('*').order('created_at', { ascending: false });
+    const { data } = await supabase.from('vendas').select('*').eq('loja_id', lojaId).order('created_at', { ascending: false });
     const items = filterByPeriod(data || []);
     const total = items.reduce((s, v) => s + Number(v.valor), 0);
     const totalLucro = items.reduce((s, v) => s + Number(v.lucro_venda || v.valor), 0);
@@ -108,7 +110,7 @@ export default function Relatorios() {
 
   const gerarDespesas = async () => {
     setLoading('despesas');
-    const { data } = await supabase.from('despesas').select('*').order('created_at', { ascending: false });
+    const { data } = await supabase.from('despesas').select('*').eq('loja_id', lojaId).order('created_at', { ascending: false });
     const items = filterByPeriod(data || []);
     const total = items.reduce((s, d) => s + Number(d.valor), 0);
     await gerarRelatorioPdf(
@@ -123,7 +125,7 @@ export default function Relatorios() {
 
   const gerarAssistencias = async () => {
     setLoading('assistencias');
-    const { data } = await supabase.from('assistencias').select('*').order('created_at', { ascending: false });
+    const { data } = await supabase.from('assistencias').select('*').eq('loja_id', lojaId).order('created_at', { ascending: false });
     const items = filterByPeriod(data || []);
     const lucroTotal = items.reduce((s, a) => s + Number(a.lucro), 0);
     const brutoTotal = items.reduce((s, a) => s + Number(a.valor_servico), 0);
@@ -140,9 +142,9 @@ export default function Relatorios() {
   const gerarFinanceiro = async () => {
     setLoading('financeiro');
     const [v, d, a] = await Promise.all([
-      supabase.from('vendas').select('*'),
-      supabase.from('despesas').select('*'),
-      supabase.from('assistencias').select('*'),
+      supabase.from('vendas').select('*').eq('loja_id', lojaId),
+      supabase.from('despesas').select('*').eq('loja_id', lojaId),
+      supabase.from('assistencias').select('*').eq('loja_id', lojaId),
     ]);
     const vendas = filterByPeriod(v.data || []);
     const despesas = filterByPeriod(d.data || []);

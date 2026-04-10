@@ -21,11 +21,12 @@ export default function Caixa() {
   const hoje = new Date().toISOString().slice(0, 10);
 
   const load = async () => {
-    const { data } = await supabase.from('caixa').select('*').eq('data', hoje).order('created_at', { ascending: true });
+    if (!lojaId) return;
+    const { data } = await supabase.from('caixa').select('*').eq('loja_id', lojaId).eq('data', hoje).order('created_at', { ascending: true });
     setItems(data || []);
   };
 
-  useEffect(() => { if (user) load(); }, [user]);
+  useEffect(() => { if (user && lojaId) load(); }, [user, lojaId]);
 
   const caixaAberto = items.some(i => i.tipo === 'abertura');
   const caixaFechado = items.some(i => i.tipo === 'fechamento');
